@@ -56,7 +56,9 @@ if message_type == "text":
 
 elif message_type == "image":
     reply_text = "画像を受け取りました！文字を読み取ります📸"
-
+ reply_token = event["replyToken"]
+    send_reply(reply_token, reply_text)
+    
         # 👇 この2行を追加！！
         clean_message = user_message.replace("　", "").replace(" ", "").strip()
 
