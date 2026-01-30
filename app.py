@@ -40,10 +40,7 @@ def webhook():
                         tasks.append(task)
                         reply_text = f"やること「{task}」を追加しました！"
                     else:
-                        reply_text = "やることの内容も送ってね！"
-
-                # 一覧表示
-    clean_message = user_message.replace("　", "").replace(" ", "").strip()
+                        reply_text = "やることの内容も送って
 
 elif "一覧" in clean_message:
                     if tasks:
