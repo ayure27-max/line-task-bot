@@ -43,6 +43,7 @@ def webhook():
                     task = user_message[2:].strip()
                     if task:
                         tasks.append(task)
+                        save_tasks(tasks)
                         reply_text = f"予定「{task}」を追加しました！"
                     else:
                         reply_text = "予定の内容も一緒に送ってね！"
@@ -52,6 +53,7 @@ def webhook():
                     task = user_message.replace("やること", "").strip()
                     if task:
                         tasks.append(task)
+                        save_tasks(tasks)
                         reply_text = f"やること「{task}」を追加しました！"
                     else:
                         reply_text = "やることの内容も送って
@@ -68,6 +70,7 @@ elif "一覧" in clean_message:
                     number = user_message.replace("完了", "").strip()
                     if number.isdigit():
                         index = int(number) - 1
+                        save_tasks(tasks)
                         if 0 <= index < len(tasks):
                             done_task = tasks.pop(index)
                             reply_text = f"「{done_task}」を完了にしました！"
