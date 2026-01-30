@@ -1,10 +1,12 @@
-from flask import Flask, request, abort
+from flask import Flask, request
 import os
 import requests
 
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+
+tasks = []
 
 @app.route("/")
 def home():
@@ -14,15 +16,32 @@ def home():
 def webhook():
     body = request.json
 
-    # イベントがあるか確認
     if "events" in body:
         for event in body["events"]:
             if event["type"] == "message" and event["message"]["type"] == "text":
                 reply_token = event["replyToken"]
                 user_message = event["message"]["text"]
 
-                # オウム返しする
-                reply_message(reply_token, user_message)
+                if user_message.startswith("予定"):
+                    task = user_message.replace("予定", "").strip()
+                    if task:
+                        tasks.append(task)
+                        reply_text = f"予定を追加したよ！\n・{task}"
+                    else:
+                        reply_text = "「予定 牛乳を買う」みたいに送ってね！"
+
+                elif user_message.startswith("やること"):
+                    task = user_message.replace("やること", "").strip()
+                    if task:
+                        tasks.append(task)
+                        reply_text = f"やることを追加したよ！\n・{task}"
+                    else:
+                        reply_text = "「やること ゴミ出し」みたいに送ってね！"
+
+                else:
+                    reply_text = "予定を追加する時は\n「予定 ○○」または「やること ○○」と送ってね！"
+
+                reply_message(reply_token, reply_text)
 
     return "OK", 200
 
