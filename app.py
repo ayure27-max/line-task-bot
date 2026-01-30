@@ -40,13 +40,34 @@ def webhook():
                     else:
                         reply_text = "やることの内容も送ってね！"
 
-elif "一覧" in user_message:
-    if tasks:
-        task_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tasks)])
-        reply_text = f"現在の予定一覧です\n{task_list}"
-    else:
-        reply_text = "今は予定は入っていません！"
-        
+                # 一覧表示
+                elif "一覧" in user_message:
+                    if tasks:
+                        task_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tasks)])
+                        reply_text = f"現在の予定一覧です\n{task_list}"
+                    else:
+                        reply_text = "今は予定は入っていません！"
+
+                # 🆕 タスク完了
+                elif user_message.startswith("完了"):
+                    number = user_message.replace("完了", "").strip()
+                    if number.isdigit():
+                        index = int(number) - 1
+                        if 0 <= index < len(tasks):
+                            done_task = tasks.pop(index)
+                            reply_text = f"「{done_task}」を完了にしました！"
+                        else:
+                            reply_text = "その番号の予定はありません！"
+                    else:
+                        reply_text = "「完了 1」みたいに番号で教えてね！"
+
+                else:
+                    reply_text = (
+                        "予定を追加：『予定 ○○』『やること ○○』\n"
+                        "一覧を見る：『一覧』\n"
+                        "完了する：『完了 番号』"
+                    )
+
                 reply_message(reply_token, reply_text)
 
     return "OK", 200
