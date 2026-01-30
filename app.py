@@ -1,12 +1,26 @@
 from flask import Flask, request
 import os
 import requests
+import json
 
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
-tasks = []
+TASK_FILE = "tasks.json"
+
+def load_tasks():
+    try:
+        with open(TASK_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_tasks(tasks):
+    with open(TASK_FILE, "w", encoding="utf-8") as f:
+        json.dump(tasks, f, ensure_ascii=False)
+
+tasks = load_tasks()
 
 @app.route("/")
 def home():
