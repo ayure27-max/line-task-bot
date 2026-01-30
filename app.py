@@ -15,15 +15,17 @@ def home():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     body = request.json
+    print(body)
 
-    if "events" in body:
-        for event in body["events"]:
-            if event["type"] == "message" and event["message"]["type"] == "text":
-                reply_token = event["replyToken"]
-                user_message = event["message"]["text"].strip()
+    events = body["events"]
+    for event in events:
+        user_message = event["message"]["text"]
+
+        # 👇 この2行を追加！！
+        clean_message = user_message.replace("　", "").replace(" ", "").strip()
 
                 # 予定追加
-                if user_message.startswith("予定"):
+                if clean_message.startswith("予定"):
                     task = user_message[2:].strip()
                     if task:
                         tasks.append(task)
@@ -32,7 +34,7 @@ def webhook():
                         reply_text = "予定の内容も一緒に送ってね！"
 
                 # やること追加
-                elif user_message.startswith("やること"):
+                elif clean_message.startswith("やること"):
                     task = user_message.replace("やること", "").strip()
                     if task:
                         tasks.append(task)
