@@ -44,22 +44,21 @@ def webhook():
     body = request.json
     print(body)
 
-    events = body["events"]
-    for event in events:
-message_type = event["message"]["type"]
+events = body["events"]
+for event in events:
+    message_type = event["message"]["type"]
 
-if message_type == "text":
-    user_message = event["message"]["text"]
-    clean_message = user_message.replace("　", "").replace(" ", "").strip()
+    if message_type == "text":
+        user_message = event["message"]["text"]
+        clean_message = user_message.replace("　", "").replace(" ", "").strip()
 
-    # ここに今までの予定・一覧・完了の処理
+        # ここに予定・一覧・完了の処理を書く
 
-elif message_type == "image":
-    reply_text = "画像を受け取りました！文字を読み取ります📸"
- reply_token = event["replyToken"]
-    send_reply(reply_token, reply_text)
-    
-        # 👇 この2行を追加！！
+    elif message_type == "image":
+        reply_text = "画像を受け取りました！文字を読み取ります📸"
+        send_reply(event["replyToken"], reply_text)
+  
+              # 👇 この2行を追加！！
         clean_message = user_message.replace("　", "").replace(" ", "").strip()
 
                 # 予定追加
