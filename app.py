@@ -33,7 +33,16 @@ def webhook():
 
     events = body["events"]
     for event in events:
-        user_message = event["message"]["text"]
+message_type = event["message"]["type"]
+
+if message_type == "text":
+    user_message = event["message"]["text"]
+    clean_message = user_message.replace("　", "").replace(" ", "").strip()
+
+    # ここに今までの予定・一覧・完了の処理
+
+elif message_type == "image":
+    reply_text = "画像を受け取りました！文字を読み取ります📸"
 
         # 👇 この2行を追加！！
         clean_message = user_message.replace("　", "").replace(" ", "").strip()
