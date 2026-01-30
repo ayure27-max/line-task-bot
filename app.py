@@ -40,17 +40,13 @@ def webhook():
                     else:
                         reply_text = "やることの内容も送ってね！"
 
-                # 一覧表示 ← 🆕追加部分
-                elif user_message == "一覧":
-                    if tasks:
-                        task_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tasks)])
-                        reply_text = f"現在の予定一覧です\n{task_list}"
-                    else:
-                        reply_text = "今は予定は入っていません！"
-
-                else:
-                    reply_text = "予定を追加する時は\n「予定 ○○」または「やること ○○」\n一覧を見る時は「一覧」と送ってね！"
-
+elif "一覧" in user_message:
+    if tasks:
+        task_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tasks)])
+        reply_text = f"現在の予定一覧です\n{task_list}"
+    else:
+        reply_text = "今は予定は入っていません！"
+        
                 reply_message(reply_token, reply_text)
 
     return "OK", 200
