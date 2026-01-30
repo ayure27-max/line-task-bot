@@ -20,23 +20,25 @@ def webhook():
         for event in body["events"]:
             if event["type"] == "message" and event["message"]["type"] == "text":
                 reply_token = event["replyToken"]
-                user_message = event["message"]["text"]
+                user_message = event["message"]["text"].strip()
 
+                # 「予定 ○○」の処理
                 if user_message.startswith("予定"):
-                    task = user_message.replace("予定", "").strip()
+                    task = user_message[2:].strip()  # 「予定」の後ろ全部取得
                     if task:
                         tasks.append(task)
-                        reply_text = f"予定を追加したよ！\n・{task}"
+                        reply_text = f"予定「{task}」を追加しました！"
                     else:
-                        reply_text = "「予定 牛乳を買う」みたいに送ってね！"
+                        reply_text = "予定の内容も一緒に送ってね！"
 
+                # 「やること ○○」の処理
                 elif user_message.startswith("やること"):
                     task = user_message.replace("やること", "").strip()
                     if task:
                         tasks.append(task)
-                        reply_text = f"やることを追加したよ！\n・{task}"
+                        reply_text = f"やること「{task}」を追加しました！"
                     else:
-                        reply_text = "「やること ゴミ出し」みたいに送ってね！"
+                        reply_text = "やることの内容も送ってね！"
 
                 else:
                     reply_text = "予定を追加する時は\n「予定 ○○」または「やること ○○」と送ってね！"
