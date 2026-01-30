@@ -41,7 +41,9 @@ def webhook():
                         reply_text = "やることの内容も送ってね！"
 
                 # 一覧表示
-                elif "一覧" in user_message:
+    clean_message = user_message.replace("　", "").replace(" ", "").strip()
+
+elif "一覧" in clean_message:
                     if tasks:
                         task_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tasks)])
                         reply_text = f"現在の予定一覧です\n{task_list}"
