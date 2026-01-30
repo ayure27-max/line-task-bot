@@ -6,10 +6,6 @@ import json
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-import requests
-import os
-
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
 def send_reply(reply_token, text):
     url = "https://api.line.me/v2/bot/message/reply"
