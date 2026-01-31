@@ -93,7 +93,7 @@ def webhook():
                 else:
                     reply_text = "予定の内容も送ってね！"
 
-            elif "一覧" in clean_message:
+            elif clean_message.startswith("一覧"):
                 user_tasks = tasks.get(user_id, [])
                 if user_tasks:
                     task_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(user_tasks))
