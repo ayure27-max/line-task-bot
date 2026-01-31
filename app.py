@@ -90,7 +90,11 @@ def webhook():
 if clean_message.startswith("全体予定"):
     task_text = user_message.replace("全体予定", "").strip()
     if task_text:
-        task = {"text": task_text, "status": "pending"}
+        task = {
+    "text": task_text,
+    "status": "pending",
+    "creator": user_id   # ← 追加
+}
         tasks["global"].append(task)
         save_tasks(tasks)
         reply_text = f"🌍全体予定『{task_text}』を追加しました！"
