@@ -160,6 +160,31 @@ def webhook():
                         reply_text = "その番号の予定はありません！"
                 else:
                     reply_text = "『完了 1』や『完了 G1』みたいに送ってね！"
+                    
+            # 🛠 管理者用：完了者確認
+            elif clean_message.startswith("確認"):
+                if user_id not in ADMIN_USERS:
+                    reply_text = "このコマンドは管理者のみ使えます🔒"
+                else:
+                    number = clean_message.replace("確認", "").strip()
+                    
+                    if number.startswith("G") and number[1:].isdigit():
+                        index = int(number[1:]) - 1
+                        
+                        if 0 <= index < len(tasks["global"]):
+                            task = tasks["global"][index]
+                            done_users = task.get("done_by", [])
+                            
+                            if done_users:
+                                lines = "\n".join(done_users)
+                                reply_text = f"『{task['text']}』を完了したユーザー👇\n{lines}"
+                            else:
+                                reply_text = "まだ誰も完了していません"
+                        else:
+                            reply_text = "その番号の全体予定はありません！"
+                    else:
+                        reply_text = "『確認 G1』みたいに送ってね！"
+                        
             # ❌ 削除処理
             elif clean_message.startswith("削除"):
                 number = clean_message.replace("削除", "").strip()
