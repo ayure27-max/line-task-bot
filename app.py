@@ -141,14 +141,19 @@ elif clean_message.startswith("予定"):
                 number = clean_message.replace("完了", "").strip()
 
                 # 全体予定
-                if number.startswith("G") and number[1:].isdigit():
-                    index = int(number[1:]) - 1
-                    if 0 <= index < len(tasks["global"]):
-                        tasks["global"][index]["status"] = "done"
-                        save_tasks(tasks)
-                        reply_text = "🌍全体予定を完了にしました！"
-                    else:
-                        reply_text = "その番号の全体予定はありません！"
+        if number.startswith("G") and number[1:].isdigit():
+    index = int(number[1:]) - 1
+    if 0 <= index < len(tasks["global"]):
+        task = tasks["global"][index]
+
+        if task.get("creator") == user_id:
+            task["status"] = "done"
+            save_tasks(tasks)
+            reply_text = "🌍あなたが作成した全体予定を完了にしました！"
+        else:
+            reply_text = "この全体予定は作成者しか完了にできません🙅"
+    else:
+        reply_text = "その番号の全体予定はありません！"
 
                 # 個人予定
                 elif number.isdigit():
