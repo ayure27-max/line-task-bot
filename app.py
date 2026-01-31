@@ -7,13 +7,9 @@ import shutil
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-
 TASK_FILE = "tasks.json"
 
 
-# ----------------------------
-# LINE返信
-# ----------------------------
 def send_reply(reply_token, text):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
@@ -27,9 +23,6 @@ def send_reply(reply_token, text):
     requests.post(url, headers=headers, json=data)
 
 
-# ----------------------------
-# タスク保存・読み込み
-# ----------------------------
 def load_tasks():
     try:
         with open(TASK_FILE, "r", encoding="utf-8") as f:
@@ -46,110 +39,91 @@ def save_tasks(tasks):
 tasks = load_tasks()
 
 
-# ----------------------------
-# 動作確認用ページ
-# ----------------------------
 @app.route("/")
 def home():
     return "Bot is running!"
 
 
-# ----------------------------
-# LINE Webhook
-# ----------------------------
 @app.route("/webhook", methods=["POST"])
 def webhook():
     body = request.get_json()
     events = body.get("events", [])
 
-for event in events:
-    user_id = event["source"]["userId"]
+    for event in events:
+        if "message" not in event:
+            continue
 
-　　　if user_id not in tasks:
-    tasks[user_id] = []
-    
-    if "message" not in event:
-        continue
+        user_id = event["source"]["userId"]
+        reply_token = event["replyToken"]
+        message_type = event["message"]["type"]
 
-    reply_token = event["replyToken"]
-    message_type = event["message"]["type"]
+        if user_id not in tasks:
+            tasks[user_id] = []
 
-    # =====================
-    # 画像メッセージ（先に処理する）
-    # =====================
-    elif message_type == "image":
-    message_id = event["message"]["id"]
+        # ---------------- 画像メッセージ ----------------
+        if message_type == "image":
+            message_id = event["message"]["id"]
 
-    headers = {
-        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
-    }
+            headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
+            image_url = f"https://api-data.line.me/v2/bot/message/{message_id}/content"
+            response = requests.get(image_url, headers=headers, stream=True)
 
-    image_url = f"https://api-data.line.me/v2/bot/message/{message_id}/content"
-    response = requests.get(image_url, headers=headers, stream=True)
-
-    if response.status_code == 200:
-        file_path = f"image_{message_id}.jpg"
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(response.raw, f)
-
-        reply_text = "画像を保存しました！🖼"
-    else:
-        reply_text = "画像の取得に失敗しました…"
-
-    send_reply(reply_token, reply_text)
-    continue
-
-    # =====================
-    # テキストメッセージ
-    # =====================
-    if message_type == "text":
-        user_message = event["message"]["text"]
-        clean_message = user_message.replace("　", "").replace(" ", "").strip()
-
-        if clean_message.startswith("予定"):
-            task = user_message.replace("予定", "").strip()
-            if task:
-                tasks[user_id].append(task)
-　　　　　　　　　　　save_tasks(tasks)
-                reply_text = f"予定『{task}』を追加しました！"
+            if response.status_code == 200:
+                file_path = f"image_{message_id}.jpg"
+                with open(file_path, "wb") as f:
+                    shutil.copyfileobj(response.raw, f)
+                reply_text = "画像を保存しました！"
             else:
-                reply_text = "予定の内容も送ってね！"
+                reply_text = "画像の取得に失敗しました…"
 
-        elif "一覧" in clean_message:
-            user_tasks = tasks.get(user_id, [])
+            send_reply(reply_token, reply_text)
+            continue
 
-            if user_tasks:
-                task_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(user_tasks))
-                reply_text = f"あなたの予定一覧です\n{task_list}"
+        # ---------------- テキストメッセージ ----------------
+        if message_type == "text":
+            user_message = event["message"]["text"]
+            clean_message = user_message.replace("　", "").replace(" ", "").strip()
+
+            if clean_message.startswith("予定"):
+                task = user_message.replace("予定", "").strip()
+                if task:
+                    tasks[user_id].append(task)
+                    save_tasks(tasks)
+                    reply_text = f"予定『{task}』を追加しました！"
+                else:
+                    reply_text = "予定の内容も送ってね！"
+
+            elif "一覧" in clean_message:
+                user_tasks = tasks.get(user_id, [])
+                if user_tasks:
+                    task_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(user_tasks))
+                    reply_text = f"あなたの予定一覧です\n{task_list}"
+                else:
+                    reply_text = "あなたの予定はまだありません！"
+
+            elif clean_message.startswith("完了"):
+                number = clean_message.replace("完了", "").strip()
+                user_tasks = tasks.get(user_id, [])
+
+                if number.isdigit():
+                    index = int(number) - 1
+                    if 0 <= index < len(user_tasks):
+                        done_task = user_tasks.pop(index)
+                        save_tasks(tasks)
+                        reply_text = f"『{done_task}』を完了にしました！"
+                    else:
+                        reply_text = "その番号の予定はありません！"
+                else:
+                    reply_text = "『完了 1』みたいに番号で教えてね！"
+
             else:
-                reply_text = "あなたの予定はまだありません！"
+                reply_text = "『予定 ○○』『一覧』『完了 1』などと送ってね"
 
-        else:
-            reply_text = "『予定 ○○』『一覧』『完了 1』などと送ってね"
-
-        send_reply(reply_token, reply_text)
-        
-        elif clean_message.startswith("完了"):
-    number = clean_message.replace("完了", "").strip()
-    user_tasks = tasks.get(user_id, [])
-
-    if number.isdigit():
-        index = int(number) - 1
-        if 0 <= index < len(user_tasks):
-            done_task = user_tasks.pop(index)
-            save_tasks(tasks)
-            reply_text = f"『{done_task}』を完了にしました！"
-        else:
-            reply_text = "その番号の予定はありません！"
-    else:
-        reply_text = "『完了 1』みたいに番号で教えてね！"
+            send_reply(reply_token, reply_text)
 
     return "OK", 200
 
 
-# ----------------------------
-# Render用ポート設定
-# ----------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
