@@ -23,12 +23,16 @@ def send_reply(reply_token, text):
     requests.post(url, headers=headers, json=data)
 
 
-def load_tasks():
+def def load_tasks():
     try:
         with open(TASK_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # 初期構造が無い場合に備える
+            if "users" not in data:
+                data = {"users": {}, "global": []}
+            return data
     except:
-        return {}
+        return {"users": {}, "global": []}
 
 
 def save_tasks(tasks):
