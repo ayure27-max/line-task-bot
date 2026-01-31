@@ -97,6 +97,16 @@ def webhook():
         reply_text = f"予定『{task_text}』を追加しました！"
     else:
         reply_text = "予定の内容も送ってね！"
+        
+        elif clean_message.startswith("全体予定"):
+    task_text = user_message.replace("全体予定", "").strip()
+    if task_text:
+        task = {"text": task_text, "status": "pending"}
+        tasks["global"].append(task)
+        save_tasks(tasks)
+        reply_text = f"🌍全体予定『{task_text}』を追加しました！"
+    else:
+        reply_text = "全体予定の内容も送ってね！"
 
             elif clean_message.startswith("一覧"):
                 user_tasks = tasks.get(user_id, [])
