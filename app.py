@@ -133,10 +133,31 @@ def webhook():
                             continue
                         reply_lines.append(f"G{i+1}. ⬜ {t['text']}")
 
-                reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！"
-elif clean_message == "自分のID":
-    reply_text = f"あなたのuserIdはこちら👇\n{user_id}"
+                reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！
+                
+        # 💬 テキスト処理
+        if message_type == "text":
+            user_message = event["message"]["text"]
+            clean_message = user_message.replace("　", "").replace(" ", "").strip()
 
+            # 🆔 自分のID表示 ← ★ここに追加！
+            if clean_message == "自分のID":
+                reply_text = f"あなたのuserIdはこちら👇\n{user_id}"
+
+            # 🌍 全体予定追加
+            elif clean_message.startswith("全体予定"):
+                task_text = user_message.replace("全体予定", "").strip()
+                if task_text:
+                    task = {
+                        "text": task_text,
+                        "creator": user_id,
+                        "done_by": []
+                    }
+                    tasks["global"].append(task)
+                    save_tasks(tasks)
+                    reply_text = f"🌍全体予定『{task_text}』を追加しました！"
+                else:
+                    reply_text = "全体予定の内容も送ってね！"
            # ✅ 完了処理
             elif clean_message.startswith("完了"):
                 number = clean_message.replace("完了", "").strip()
