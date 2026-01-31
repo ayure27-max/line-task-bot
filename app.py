@@ -135,7 +135,10 @@ def webhook():
 
                 reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！"
 
-            # ✅ 完了処理
+elif clean_message == "自分のID":
+    reply_text = f"あなたのuserIdはこちら👇\n{user_id}"
+
+           # ✅ 完了処理
             elif clean_message.startswith("完了"):
                 number = clean_message.replace("完了", "").strip()
 
