@@ -108,13 +108,28 @@ def webhook():
     else:
         reply_text = "全体予定の内容も送ってね！"
 
-            elif clean_message.startswith("一覧"):
-                user_tasks = tasks.get(user_id, [])
-                if user_tasks:
-                    task_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(user_tasks))
-                    reply_text = f"あなたの予定一覧です\n{task_list}"
-                else:
-                    reply_text = "あなたの予定はまだありません！"
+elif clean_message.startswith("一覧"):
+    user_tasks = tasks["users"].get(user_id, [])
+    global_tasks = tasks.get("global", [])
+
+    reply_lines = []
+
+    if user_tasks:
+        reply_lines.append("🗓 あなたの予定")
+        for i, t in enumerate(user_tasks):
+            status = "✅" if t["status"] == "done" else "⬜"
+            reply_lines.append(f"{i+1}. {status} {t['text']}")
+
+    if global_tasks:
+        reply_lines.append("\n🌍 全体予定")
+        for i, t in enumerate(global_tasks):
+            status = "✅" if t["status"] == "done" else "⬜"
+            reply_lines.append(f"G{i+1}. {status} {t['text']}")
+
+    if not reply_lines:
+        reply_text = "予定はまだありません！"
+    else:
+        reply_text = "\n".join(reply_lines)
 
             elif clean_message.startswith("完了"):
                 number = clean_message.replace("完了", "").strip()
