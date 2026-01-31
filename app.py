@@ -36,12 +36,12 @@ def send_reply(reply_token, text, quick_reply=None):
         "messages": [{"type": "text", "text": text}]
     }
     if quick_reply:
-    message["quickReply"] = {"items": quick_reply}
+        message["quickReply"] = {"items": quick_reply}
         
-    data = {
-    "replyToken": reply_token,
-    "messages": [message]
-    }
+        data = {
+        "replyToken": reply_token,
+        "messages": [message]
+        }
         
     requests.post(url, headers=headers, json=data)
 
