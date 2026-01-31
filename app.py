@@ -160,33 +160,33 @@ def webhook():
                         reply_text = "その番号の予定はありません！"
                 else:
                     reply_text = "『完了 1』や『完了 G1』みたいに送ってね！"
-                
+            # ❌ 削除処理
             elif clean_message.startswith("削除"):
-        number = clean_message.replace("削除", "").strip()
-
-        # 🌍 全体予定削除
-        if number.startswith("G") and number[1:].isdigit():
-            index = int(number[1:]) - 1
-            if 0 <= index < len(tasks["global"]):
-                deleted = tasks["global"].pop(index)
-                save_tasks(tasks)
-                reply_text = f"🌍全体予定『{deleted['text']}』を削除しました！"
-            else:
-                reply_text = "その番号の全体予定はありません！"
-
-        # 🧍 個人予定削除
-        elif number.isdigit():
-            index = int(number) - 1
-            user_tasks = tasks["users"].get(user_id, [])
-            if 0 <= index < len(user_tasks):
-                deleted = user_tasks.pop(index)
-                save_tasks(tasks)
-                reply_text = f"予定『{deleted['text']}』を削除しました！"
-            else:
-                reply_text = "その番号の予定はありません！"
-
-        else:
-            reply_text = "『削除 1』や『削除 G1』みたいに送ってね！"
+                number = clean_message.replace("削除", "").strip()
+                
+                # 🌍 全体予定削除
+                if number.startswith("G") and number[1:].isdigit():
+                    index = int(number[1:]) - 1
+                    if 0 <= index < len(tasks["global"]):
+                        deleted = tasks["global"].pop(index)
+                        save_tasks(tasks)
+                        reply_text = f"🌍全体予定『{deleted['text']}』を削除しました！"
+                    else:
+                        reply_text = "その番号の全体予定はありません！"
+                        
+                 # 🧍 個人予定削除
+                elif number.isdigit():
+                    index = int(number) - 1
+                    user_tasks = tasks["users"].get(user_id, [])
+                    if 0 <= index < len(user_tasks):
+                        deleted = user_tasks.pop(index)
+                        save_tasks(tasks)
+                        reply_text = f"予定『{deleted['text']}』を削除しました！"
+                    else:
+                        reply_text = "その番号の予定はありません！"
+                        
+                else:
+                    reply_text = "『削除 1』や『削除 G1』みたいに送ってね！"
 
             send_reply(reply_token, reply_text)
 
