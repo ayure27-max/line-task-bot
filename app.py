@@ -27,7 +27,7 @@ def load_tasks():
     try:
         with open(TASK_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if "users" not in data:
+            if "users" not in data or "global" not in data:
                 data = {"users": {}, "global": []}
             return data
     except:
@@ -63,7 +63,7 @@ def webhook():
         if user_id not in tasks["users"]:
             tasks["users"][user_id] = []
 
-        # ---------- 画像メッセージ ----------
+        # 🖼️ 画像保存
         if message_type == "image":
             message_id = event["message"]["id"]
             headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
@@ -81,37 +81,37 @@ def webhook():
             send_reply(reply_token, reply_text)
             continue
 
-        # ---------- テキストメッセージ ----------
+        # 💬 テキスト処理
         if message_type == "text":
             user_message = event["message"]["text"]
-            clean_message = user_message.replace("　", "").replace(" ", "").
-           
-# 🌍 全体予定追加（← 先に書く！）
-if clean_message.startswith("全体予定"):
-    task_text = user_message.replace("全体予定", "").strip()
-    if task_text:
-        task = {
-    "text": task_text,
-    "status": "pending",
-    "creator": user_id   # ← 追加
-}
-        tasks["global"].append(task)
-        save_tasks(tasks)
-        reply_text = f"🌍全体予定『{task_text}』を追加しました！"
-    else:
-        reply_text = "全体予定の内容も送ってね！"
+            clean_message = user_message.replace("　", "").replace(" ", "")
 
-# 🧍 個人予定追加
-elif clean_message.startswith("予定"):
-    task_text = user_message.replace("予定", "").strip()
-    if task_text:
-        task = {"text": task_text, "status": "pending"}
-        tasks["users"][user_id].append(task)
-        save_tasks(tasks)
-        reply_text = f"予定『{task_text}』を追加しました！"
-    else:
-        reply_text = "予定の内容も送ってね！"
-        
+            # 🌍 全体予定追加
+            if clean_message.startswith("全体予定"):
+                task_text = user_message.replace("全体予定", "").strip()
+                if task_text:
+                    task = {
+                        "text": task_text,
+                        "creator": user_id,
+                        "done_by": []
+                    }
+                    tasks["global"].append(task)
+                    save_tasks(tasks)
+                    reply_text = f"🌍全体予定『{task_text}』を追加しました！"
+                else:
+                    reply_text = "全体予定の内容も送ってね！"
+
+            # 🧍 個人予定追加
+            elif clean_message.startswith("予定"):
+                task_text = user_message.replace("予定", "").strip()
+                if task_text:
+                    task = {"text": task_text, "status": "pending"}
+                    tasks["users"][user_id].append(task)
+                    save_tasks(tasks)
+                    reply_text = f"予定『{task_text}』を追加しました！"
+                else:
+                    reply_text = "予定の内容も送ってね！"
+
             # 📋 一覧表示
             elif clean_message.startswith("一覧"):
                 user_tasks = tasks["users"].get(user_id, [])
@@ -122,40 +122,36 @@ elif clean_message.startswith("予定"):
                 if user_tasks:
                     reply_lines.append("🗓 あなたの予定")
                     for i, t in enumerate(user_tasks):
-                        status = "✅" if t["status"] == "done" else "⬜"
-                        reply_lines.append(f"{i+1}. {status} {t['text']}")
+                        if t["status"] == "done":
+                            continue
+                        reply_lines.append(f"{i+1}. ⬜ {t['text']}")
 
                 if global_tasks:
                     reply_lines.append("\n🌍 全体予定")
                     for i, t in enumerate(global_tasks):
-                        status = "✅" if t["status"] == "done" else "⬜"
-                        reply_lines.append(f"G{i+1}. {status} {t['text']}")
+                        if user_id in t.get("done_by", []):
+                            continue
+                        reply_lines.append(f"G{i+1}. ⬜ {t['text']}")
 
-                if not reply_lines:
-                    reply_text = "予定はまだありません！"
-                else:
-                    reply_text = "\n".join(reply_lines)
+                reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！"
 
             # ✅ 完了処理
             elif clean_message.startswith("完了"):
                 number = clean_message.replace("完了", "").strip()
 
-                # 全体予定
-        if number.startswith("G") and number[1:].isdigit():
-    index = int(number[1:]) - 1
-    if 0 <= index < len(tasks["global"]):
-        task = tasks["global"][index]
+                # 🌍 全体予定
+                if number.startswith("G") and number[1:].isdigit():
+                    index = int(number[1:]) - 1
+                    if 0 <= index < len(tasks["global"]):
+                        task = tasks["global"][index]
+                        if user_id not in task["done_by"]:
+                            task["done_by"].append(user_id)
+                            save_tasks(tasks)
+                        reply_text = "この全体予定をあなたの一覧から完了にしました！"
+                    else:
+                        reply_text = "その番号の全体予定はありません！"
 
-        if task.get("creator") == user_id:
-            task["status"] = "done"
-            save_tasks(tasks)
-            reply_text = "🌍あなたが作成した全体予定を完了にしました！"
-        else:
-            reply_text = "この全体予定は作成者しか完了にできません🙅"
-    else:
-        reply_text = "その番号の全体予定はありません！"
-
-                # 個人予定
+                # 🧍 個人予定
                 elif number.isdigit():
                     index = int(number) - 1
                     user_tasks = tasks["users"].get(user_id, [])
@@ -168,8 +164,35 @@ elif clean_message.startswith("予定"):
                 else:
                     reply_text = "『完了 1』や『完了 G1』みたいに送ってね！"
 
+            # ❌ 削除処理
+            elif clean_message.startswith("削除"):
+                number = clean_message.replace("削除", "").strip()
+
+                # 🌍 全体予定（誰でも削除OK）
+                if number.startswith("G") and number[1:].isdigit():
+                    index = int(number[1:]) - 1
+                    if 0 <= index < len(tasks["global"]):
+                        deleted = tasks["global"].pop(index)
+                        save_tasks(tasks)
+                        reply_text = f"🌍全体予定『{deleted['text']}』を削除しました！"
+                    else:
+                        reply_text = "その番号の全体予定はありません！"
+
+                # 🧍 個人予定
+                elif number.isdigit():
+                    index = int(number) - 1
+                    user_tasks = tasks["users"].get(user_id, [])
+                    if 0 <= index < len(user_tasks):
+                        deleted = user_tasks.pop(index)
+                        save_tasks(tasks)
+                        reply_text = f"予定『{deleted['text']}』を削除しました！"
+                    else:
+                        reply_text = "その番号の予定はありません！"
+                else:
+                    reply_text = "『削除 1』や『削除 G1』みたいに送ってね！"
+
             else:
-                reply_text = "『予定 ○○』『全体予定 ○○』『一覧』『完了 1』などと送ってね"
+                reply_text = "『予定 ○○』『全体予定 ○○』『一覧』『完了 1』『削除 1』などと送ってね"
 
             send_reply(reply_token, reply_text)
 
