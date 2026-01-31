@@ -134,7 +134,6 @@ def webhook():
                         reply_lines.append(f"G{i+1}. ⬜ {t['text']}")
 
                 reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！"
-
 elif clean_message == "自分のID":
     reply_text = f"あなたのuserIdはこちら👇\n{user_id}"
 
