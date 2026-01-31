@@ -132,6 +132,21 @@ for event in events:
             reply_text = "『予定 ○○』『一覧』などと送ってね"
 
         send_reply(reply_token, reply_text)
+        
+        elif clean_message.startswith("完了"):
+    number = clean_message.replace("完了", "").strip()
+    user_tasks = tasks.get(user_id, [])
+
+    if number.isdigit():
+        index = int(number) - 1
+        if 0 <= index < len(user_tasks):
+            done_task = user_tasks.pop(index)
+            save_tasks(tasks)
+            reply_text = f"『{done_task}』を完了にしました！"
+        else:
+            reply_text = "その番号の予定はありません！"
+    else:
+        reply_text = "『完了 1』みたいに番号で教えてね！"
 
     return "OK", 200
 
