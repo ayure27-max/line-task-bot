@@ -121,8 +121,10 @@ def webhook():
                     tasks["global"].append(task)
                     save_tasks(tasks)
                     reply_text = f"🌍全体予定『{task_text}』を追加しました！"
+                    send_reply(reply_token, reply_text, QUICK_MENU)
                 else:
                     reply_text = "全体予定の内容も送ってね！"
+                    send_reply(reply_token, reply_text, QUICK_MENU)
 
             # 🧍 個人予定追加
             elif clean_message.startswith("予定"):
@@ -132,8 +134,10 @@ def webhook():
                     tasks["users"][user_id].append(task)
                     save_tasks(tasks)
                     reply_text = f"予定『{task_text}』を追加しました！"
+                    send_reply(reply_token, reply_text, QUICK_MENU)
                 else:
                     reply_text = "予定の内容も送ってね！"
+                    send_reply(reply_token, reply_text, QUICK_MENU)
 
             # 📋 一覧表示
             elif clean_message.startswith("一覧"):
@@ -146,12 +150,14 @@ def webhook():
                     for i, t in enumerate(user_tasks):
                         if t["status"] != "done":
                             reply_lines.append(f"{i+1}. ⬜ {t['text']}")
+                            send_reply(reply_token, reply_text, QUICK_MENU)
 
                 if global_tasks:
                     reply_lines.append("\n🌍 全体予定")
                     for i, t in enumerate(global_tasks):
                         if user_id not in t.get("done_by", []):
                             reply_lines.append(f"G{i+1}. ⬜ {t['text']}")
+                            send_reply(reply_token, reply_text, QUICK_MENU)
 
                 reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！"
 
@@ -167,8 +173,10 @@ def webhook():
                             task["done_by"].append(user_id)
                             save_tasks(tasks)
                         reply_text = "この全体予定をあなたの一覧から完了にしました！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                     else:
                         reply_text = "その番号の全体予定はありません！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
 
                 elif number.isdigit():
                     index = int(number) - 1
@@ -177,10 +185,13 @@ def webhook():
                         user_tasks[index]["status"] = "done"
                         save_tasks(tasks)
                         reply_text = "あなたの予定を完了にしました！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                     else:
                         reply_text = "その番号の予定はありません！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                 else:
                     reply_text = "『完了 1』や『完了 G1』みたいに送ってね！"
+                    send_reply(reply_token, reply_text, QUICK_MENU)
                     
             # 🛠 管理者用：完了者確認
             elif clean_message.startswith("確認"):
@@ -201,10 +212,13 @@ def webhook():
                                 reply_text = f"『{task['text']}』を完了したユーザー👇\n{lines}"
                             else:
                                 reply_text = "まだ誰も完了していません"
+                                send_reply(reply_token, reply_text, QUICK_MENU)
                         else:
                             reply_text = "その番号の全体予定はありません！"
+                            send_reply(reply_token, reply_text, QUICK_MENU)
                     else:
                         reply_text = "『確認 G1』みたいに送ってね！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                         
             # ❌ 削除処理
             elif clean_message.startswith("削除"):
@@ -217,8 +231,10 @@ def webhook():
                         deleted = tasks["global"].pop(index)
                         save_tasks(tasks)
                         reply_text = f"🌍全体予定『{deleted['text']}』を削除しました！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                     else:
                         reply_text = "その番号の全体予定はありません！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                         
                  # 🧍 個人予定削除
                 elif number.isdigit():
@@ -228,8 +244,10 @@ def webhook():
                         deleted = user_tasks.pop(index)
                         save_tasks(tasks)
                         reply_text = f"予定『{deleted['text']}』を削除しました！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                     else:
                         reply_text = "その番号の予定はありません！"
+                        send_reply(reply_token, reply_text, QUICK_MENU)
                         
                 else:
                     reply_text = "『削除 1』や『削除 G1』みたいに送ってね！"
