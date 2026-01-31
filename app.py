@@ -84,30 +84,30 @@ def webhook():
         # ---------- テキストメッセージ ----------
         if message_type == "text":
             user_message = event["message"]["text"]
-            clean_message = user_message.replace("　", "").replace(" ", "").strip()
+            clean_message = user_message.replace("　", "").replace(" ", "").
+           
+# 🌍 全体予定追加（← 先に書く！）
+if clean_message.startswith("全体予定"):
+    task_text = user_message.replace("全体予定", "").strip()
+    if task_text:
+        task = {"text": task_text, "status": "pending"}
+        tasks["global"].append(task)
+        save_tasks(tasks)
+        reply_text = f"🌍全体予定『{task_text}』を追加しました！"
+    else:
+        reply_text = "全体予定の内容も送ってね！"
 
-            # 🧍 個人予定追加
-            if clean_message.startswith("予定"):
-                task_text = user_message.replace("予定", "").strip()
-                if task_text:
-                    task = {"text": task_text, "status": "pending"}
-                    tasks["users"][user_id].append(task)
-                    save_tasks(tasks)
-                    reply_text = f"予定『{task_text}』を追加しました！"
-                else:
-                    reply_text = "予定の内容も送ってね！"
-
-            # 🌍 全体予定追加
-            elif clean_message.startswith("全体予定"):
-                task_text = user_message.replace("全体予定", "").strip()
-                if task_text:
-                    task = {"text": task_text, "status": "pending"}
-                    tasks["global"].append(task)
-                    save_tasks(tasks)
-                    reply_text = f"🌍全体予定『{task_text}』を追加しました！"
-                else:
-                    reply_text = "全体予定の内容も送ってね！"
-
+# 🧍 個人予定追加
+elif clean_message.startswith("予定"):
+    task_text = user_message.replace("予定", "").strip()
+    if task_text:
+        task = {"text": task_text, "status": "pending"}
+        tasks["users"][user_id].append(task)
+        save_tasks(tasks)
+        reply_text = f"予定『{task_text}』を追加しました！"
+    else:
+        reply_text = "予定の内容も送ってね！"
+        
             # 📋 一覧表示
             elif clean_message.startswith("一覧"):
                 user_tasks = tasks["users"].get(user_id, [])
