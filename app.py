@@ -63,6 +63,11 @@ def webhook():
     events = body.get("events", [])
 
 for event in events:
+    user_id = event["source"]["userId"]
+
+　　　if user_id not in tasks:
+    tasks[user_id] = []
+    
     if "message" not in event:
         continue
 
