@@ -160,12 +160,13 @@ def webhook():
                         reply_text = "その番号の予定はありません！"
                 else:
                     reply_text = "『完了 1』や『完了 G1』みたいに送ってね！"
-elif clean_message.startswith("削除"):
-    if user_id not in ADMIN_USERS:
-        reply_text = "この操作は管理者のみ可能です"
-    else:
-        number = clean_message.replace("削除", "").strip()
-                    index = int(number[1:]) - 1
+
+          elif clean_message.startswith("削除"):
+                  if user_id not in ADMIN_USERS:
+                      reply_text = "この操作は管理者のみ可能です"
+                  else:
+                      number = clean_message.replace("削除", "").strip()
+                      index = int(number[1:]) - 1
                     if 0 <= index < len(tasks["global"]):
                         deleted = tasks["global"].pop(index)
                         save_tasks(tasks)
