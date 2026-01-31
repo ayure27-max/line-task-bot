@@ -35,7 +35,7 @@ def load_tasks():
         with open(TASK_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
-        return []
+        return {}
 
 
 def save_tasks(tasks):
