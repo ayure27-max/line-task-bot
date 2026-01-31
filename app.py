@@ -61,8 +61,8 @@ def webhook():
         reply_token = event["replyToken"]
         message_type = event["message"]["type"]
 
-        if user_id not in tasks:
-            tasks[user_id] = []
+        if user_id not in tasks["users"]:
+           tasks["users"][user_id] = []
 
         # ---------------- 画像メッセージ ----------------
         if message_type == "image":
