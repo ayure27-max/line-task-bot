@@ -1,3 +1,4 @@
+
 from flask import Flask, request
 import os
 import requests
@@ -84,17 +85,17 @@ def webhook():
         # 💬 テキスト処理
         if message_type == "text":
             user_message = event["message"]["text"]
-            clean_message = user_message.replace("　", "").replace(" ", "")
+            clean_message = user_message.replace("　", "").replace(" ", "").strip()
+
+            # 🆔 自分のID表示
+            if clean_message == "自分のID":
+                reply_text = f"あなたのuserIdはこちら👇\n{user_id}"
 
             # 🌍 全体予定追加
-            if clean_message.startswith("全体予定"):
+            elif clean_message.startswith("全体予定"):
                 task_text = user_message.replace("全体予定", "").strip()
                 if task_text:
-                    task = {
-                        "text": task_text,
-                        "creator": user_id,
-                        "done_by": []
-                    }
+                    task = {"text": task_text, "creator": user_id, "done_by": []}
                     tasks["global"].append(task)
                     save_tasks(tasks)
                     reply_text = f"🌍全体予定『{task_text}』を追加しました！"
@@ -116,53 +117,26 @@ def webhook():
             elif clean_message.startswith("一覧"):
                 user_tasks = tasks["users"].get(user_id, [])
                 global_tasks = tasks.get("global", [])
-
                 reply_lines = []
 
                 if user_tasks:
                     reply_lines.append("🗓 あなたの予定")
                     for i, t in enumerate(user_tasks):
-                        if t["status"] == "done":
-                            continue
-                        reply_lines.append(f"{i+1}. ⬜ {t['text']}")
+                        if t["status"] != "done":
+                            reply_lines.append(f"{i+1}. ⬜ {t['text']}")
 
                 if global_tasks:
                     reply_lines.append("\n🌍 全体予定")
                     for i, t in enumerate(global_tasks):
-                        if user_id in t.get("done_by", []):
-                            continue
-                        reply_lines.append(f"G{i+1}. ⬜ {t['text']}")
+                        if user_id not in t.get("done_by", []):
+                            reply_lines.append(f"G{i+1}. ⬜ {t['text']}")
 
-                reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！
-                
-        # 💬 テキスト処理
-        if message_type == "text":
-            user_message = event["message"]["text"]
-            clean_message = user_message.replace("　", "").replace(" ", "").strip()
+                reply_text = "\n".join(reply_lines) if reply_lines else "予定はまだありません！"
 
-            # 🆔 自分のID表示 ← ★ここに追加！
-            if clean_message == "自分のID":
-                reply_text = f"あなたのuserIdはこちら👇\n{user_id}"
-
-            # 🌍 全体予定追加
-            elif clean_message.startswith("全体予定"):
-                task_text = user_message.replace("全体予定", "").strip()
-                if task_text:
-                    task = {
-                        "text": task_text,
-                        "creator": user_id,
-                        "done_by": []
-                    }
-                    tasks["global"].append(task)
-                    save_tasks(tasks)
-                    reply_text = f"🌍全体予定『{task_text}』を追加しました！"
-                else:
-                    reply_text = "全体予定の内容も送ってね！"
-           # ✅ 完了処理
+            # ✅ 完了処理
             elif clean_message.startswith("完了"):
                 number = clean_message.replace("完了", "").strip()
 
-                # 🌍 全体予定
                 if number.startswith("G") and number[1:].isdigit():
                     index = int(number[1:]) - 1
                     if 0 <= index < len(tasks["global"]):
@@ -174,7 +148,6 @@ def webhook():
                     else:
                         reply_text = "その番号の全体予定はありません！"
 
-                # 🧍 個人予定
                 elif number.isdigit():
                     index = int(number) - 1
                     user_tasks = tasks["users"].get(user_id, [])
@@ -191,7 +164,6 @@ def webhook():
             elif clean_message.startswith("削除"):
                 number = clean_message.replace("削除", "").strip()
 
-                # 🌍 全体予定（誰でも削除OK）
                 if number.startswith("G") and number[1:].isdigit():
                     index = int(number[1:]) - 1
                     if 0 <= index < len(tasks["global"]):
@@ -201,7 +173,6 @@ def webhook():
                     else:
                         reply_text = "その番号の全体予定はありません！"
 
-                # 🧍 個人予定
                 elif number.isdigit():
                     index = int(number) - 1
                     user_tasks = tasks["users"].get(user_id, [])
