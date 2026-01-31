@@ -72,10 +72,27 @@ for event in events:
     # =====================
     # 画像メッセージ（先に処理する）
     # =====================
-    if message_type == "image":
-        reply_text = "画像を受け取りました！📸"
-        send_reply(reply_token, reply_text)
-        continue   # ← ここ重要！下に落ちない
+    elif message_type == "image":
+    message_id = event["message"]["id"]
+
+    headers = {
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
+    }
+
+    image_url = f"https://api-data.line.me/v2/bot/message/{message_id}/content"
+    response = requests.get(image_url, headers=headers, stream=True)
+
+    if response.status_code == 200:
+        file_path = f"image_{message_id}.jpg"
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(response.raw, f)
+
+        reply_text = "画像を保存しました！🖼"
+    else:
+        reply_text = "画像の取得に失敗しました…"
+
+    send_reply(reply_token, reply_text)
+    continue
 
     # =====================
     # テキストメッセージ
