@@ -131,23 +131,31 @@ elif clean_message.startswith("一覧"):
     else:
         reply_text = "\n".join(reply_lines)
 
-            elif clean_message.startswith("完了"):
-                number = clean_message.replace("完了", "").strip()
-                user_tasks = tasks.get(user_id, [])
+elif clean_message.startswith("完了"):
+    number = clean_message.replace("完了", "").strip()
 
-                if number.isdigit():
-                    index = int(number) - 1
-                    if 0 <= index < len(user_tasks):
-                        done_task = user_tasks.pop(index)
-                        save_tasks(tasks)
-                        reply_text = f"『{done_task}』を完了にしました！"
-                    else:
-                        reply_text = "その番号の予定はありません！"
-                else:
-                    reply_text = "『完了 1』みたいに番号で教えてね！"
+    # 🌍 全体予定を完了
+    if number.startswith("G") and number[1:].isdigit():
+        index = int(number[1:]) - 1
+        if 0 <= index < len(tasks["global"]):
+            tasks["global"][index]["status"] = "done"
+            save_tasks(tasks)
+            reply_text = "🌍全体予定を完了にしました！"
+        else:
+            reply_text = "その番号の全体予定はありません！"
 
-            else:
-                reply_text = "『予定 ○○』『一覧』『完了 1』などと送ってね"
+    # 🧍 個人予定を完了
+    elif number.isdigit():
+        index = int(number) - 1
+        user_tasks = tasks["users"].get(user_id, [])
+        if 0 <= index < len(user_tasks):
+            user_tasks[index]["status"] = "done"
+            save_tasks(tasks)
+            reply_text = "あなたの予定を完了にしました！"
+        else:
+            reply_text = "その番号の予定はありません！"
+    else:
+        reply_text = "『完了 1』や『完了 G1』みたいに送ってね！"
 
             send_reply(reply_token, reply_text)
 
