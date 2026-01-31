@@ -10,9 +10,22 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 TASK_FILE = "tasks.json"
 # 🔐 管理者ユーザーID（自分のIDをここに入れる）
 ADMIN_USERS = ["U179b29542e4d9d16aad9ee5b8a8eea18"]
+QUICK_MENU = [
+    {
+        "type": "action",
+        "action": {"type": "message", "label": "📋 一覧", "text": "一覧"}
+    },
+    {
+        "type": "action",
+        "action": {"type": "message", "label": "🌍 全体予定追加", "text": "全体予定 "}
+    },
+    {
+        "type": "action",
+        "action": {"type": "message", "label": "🧍 予定追加", "text": "予定 "}
+    }
+]
 
-
-def send_reply(reply_token, text):
+def send_reply(reply_token, text, quick_reply=None):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
         "Content-Type": "application/json",
@@ -22,6 +35,14 @@ def send_reply(reply_token, text):
         "replyToken": reply_token,
         "messages": [{"type": "text", "text": text}]
     }
+        if quick_reply:
+        message["quickReply"] = {"items": quick_reply}
+        
+        data = {
+        "replyToken": reply_token,
+        "messages": [message]
+        }
+        
     requests.post(url, headers=headers, json=data)
 
 
