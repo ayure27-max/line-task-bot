@@ -41,7 +41,7 @@ def send_reply(reply_token, text, quick_reply=None):
     data = {
     "replyToken": reply_token,
     "messages": [message]
-       }
+    }
         
     requests.post(url, headers=headers, json=data)
 
