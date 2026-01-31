@@ -160,8 +160,8 @@ def webhook():
                         reply_text = "その番号の予定はありません！"
                 else:
                     reply_text = "『完了 1』や『完了 G1』みたいに送ってね！"
-
-          elif clean_message.startswith("削除"):
+                
+            elif clean_message.startswith("削除"):
                   if user_id not in ADMIN_USERS:
                       reply_text = "この操作は管理者のみ可能です"
                   else:
