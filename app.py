@@ -117,19 +117,15 @@ for event in events:
 
         elif "一覧" in clean_message:
             user_tasks = tasks.get(user_id, [])
-            if tasks:
-                task_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(tasks))
+
+            if user_tasks:
+                task_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(user_tasks))
                 reply_text = f"あなたの予定一覧です\n{task_list}"
-            elif "一覧" in clean_message:
-    user_tasks = tasks.get(user_id, [])
-    if user_tasks:
-        task_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(user_tasks))
-        reply_text = f"あなたの予定一覧です\n{task_list}"
-    else:
-        reply_text = "あなたの予定はまだありません！"
+            else:
+                reply_text = "あなたの予定はまだありません！"
 
         else:
-            reply_text = "『予定 ○○』『一覧』などと送ってね"
+            reply_text = "『予定 ○○』『一覧』『完了 1』などと送ってね"
 
         send_reply(reply_token, reply_text)
         
