@@ -109,8 +109,8 @@ for event in events:
         if clean_message.startswith("予定"):
             task = user_message.replace("予定", "").strip()
             if task:
-                tasks.append(task)
-                save_tasks(tasks)
+                tasks[user_id].append(task)
+　　　　　　　　　　　save_tasks(tasks)
                 reply_text = f"予定『{task}』を追加しました！"
             else:
                 reply_text = "予定の内容も送ってね！"
