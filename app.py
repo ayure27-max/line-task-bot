@@ -127,7 +127,6 @@ def build_task_bubble(title, tasks):
         }
     }
 
-    return bubble
 
 # ================= Webhook =================
 
