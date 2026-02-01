@@ -168,7 +168,7 @@ def webhook():
                 bubbles.append(build_task_bubble("🌍 全体予定", global_tasks))
 
             carousel = {"type": "carousel", "contents": bubbles}
-            reply_flex(reply_token, "タスク一覧", carousel)
+            reply_flex(reply_token, f"タスク一覧 {datetime.now().strftime('%H:%M:%S')}", carousel)
             continue
 
         # ===== 以降のロジックは完全に元のまま =====
