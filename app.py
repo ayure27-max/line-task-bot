@@ -82,24 +82,24 @@ def webhook():
         # ===== 一覧表示 =====
         if clean_message == "一覧":
             reply_lines = []
-
-            personal = [t for t in tasks["users"][user_id] if t["status"] != "done"]
-            if personal:
+            if user_tasks:
                 reply_lines.append("🗓 あなたの予定")
-                for i, t in enumerate(personal):
-                    deadline = t.get("deadline", "なし")
-                    reply_lines.append(f"{i+1}. ⬜ {t['text']}（⏰{deadline}）")
-
-            global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+                for i, t in enumerate(user_tasks):
+                    if t["status"] != "done":
+                        deadline = t.get("deadline", "なし")
+                        reply_lines.append(f"{i+1}. ⬜ {t['text']}（⏰{deadline}）")
+                        
+            global_tasks = tasks["global"]
             if global_tasks:
                 reply_lines.append("\n🌍 全体予定")
                 for i, t in enumerate(global_tasks):
-                    deadline = t.get("deadline", "なし")
-                    reply_lines.append(f"G{i+1}. ⬜ {t['text']}（⏰{deadline}）")
-
+                    if user_id not in t.get("done_by", []):
+                        deadline = t.get("deadline", "なし")
+                        reply_lines.append(f"G{i+1}. ⬜ {t['text']}（⏰{deadline}）")
+                                    
             if not reply_lines:
                 reply_lines.append("予定はまだありません！")
-
+                            
             send_reply(reply_token, "\n".join(reply_lines), QUICK_MENU)
             continue
 
