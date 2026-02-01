@@ -147,13 +147,14 @@ def webhook():
         user_id = event["source"]["userId"]
         reply_token = event["replyToken"]
         user_message = event["message"]["text"].strip()
-        clean_message = user_message.replace("　", "").replace(" ", "")
+        clean_message = user_message.strip()
 
         tasks["users"].setdefault(user_id, [])
         state = tasks["states"].get(user_id)
 
         # ===== 一覧（ここだけFlex化） =====
         if clean_message == "一覧":
+            print(">>> 一覧分岐に入りました")
             personal_tasks = [t for t in tasks["users"][user_id] if t["status"] != "done"]
             global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
 
