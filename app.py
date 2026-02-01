@@ -292,6 +292,43 @@ def webhook():
             )
             continue
             
+        # ===== チェックリスト編集中の操作 =====
+        checklists = tasks.setdefault("checklists", {}).setdefault(user_id, {"templates": [], "editing": None})
+        editing = checklists.get("editing")
+        
+        if editing:
+            msg = user_message.strip()
+            
+            # ❌ 削除（例: del 3）
+            if msg.startswith("del "):
+                try:
+                    idx = int(msg.split()[1]) - 1
+                    if 0 <= idx < len(editing["items"]):
+                        removed = editing["items"].pop(idx)
+                        save_tasks(tasks)
+                        send_reply(reply_token, f"🗑 削除: {removed}", QUICK_MENU)
+                    else:
+                         send_reply(reply_token, "番号が不正だよ", QUICK_MENU)
+                except:
+                    send_reply(reply_token, "使い方: del 3", QUICK_MENU)
+                continue
+                
+            # 🔄 並び替え（例: mv 5 2 → 5番を2番目へ）
+            if msg.startswith("mv "):
+                try:
+                    _, a, b = msg.split()
+                    a, b = int(a) - 1, int(b) - 1
+                    
+                    items = editing["items"]
+                    if 0 <= a < len(items) and 0 <= b < len(items):
+                        item = items.pop(a)
+                        items.insert(b, item)
+                        save_tasks(tasks)
+                        send_reply(reply_token, "🔄 並び替えたよ", QUICK_MENU)
+                    else:
+                        send_reply(reply_token, "番号が不正だよ", QUICK_MENU)
+                    continue
+                    
         # ===== 以下元のロジック =====
         if clean_message == "予定追加モード":
             tasks["states"][user_id] = "add_personal"
