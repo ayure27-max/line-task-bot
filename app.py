@@ -65,9 +65,10 @@ def load_tasks():
             data.setdefault("global", [])
             data.setdefault("states", {})
             data.setdefault("maps", {})
+            data.setdefault("checklists", {})
             return data
     except:
-        return {"users": {}, "global": [], "states": {}, "maps": {}}
+        return {"users": {}, "global": [], "states": {}, "maps": {}"checklists": {}}
 
 
 def save_tasks(tasks):
@@ -204,6 +205,11 @@ def webhook():
         clean_message = user_message.strip()
 
         tasks["users"].setdefault(user_id, [])
+        tasks["checklists"].setdefault(user_id, {
+            "templates": [],
+            "active": {},
+            "history": {}
+        })
         state = tasks["states"].get(user_id)
         
         # ===== 一覧（統合Flex版） =====
