@@ -19,24 +19,7 @@ QUICK_MENU = [
     {"type": "action", "action": {"type": "message", "label": "❌ 削除", "text": "削除モード"}}
 ]
 
-
-def reply_flex(reply_token, alt_text, bubble):
-    url = "https://api.line.me/v2/bot/message/reply"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
-    }
-
-    data = {
-        "replyToken": reply_token,
-        "messages": [{
-            "type": "flex",
-            "altText": alt_text,
-            "contents": bubble
-        }]
-    }
-    requests.post(url, headers=headers, json=data)
-
+# ================= 送信系 =================
 
 def send_reply(reply_token, text, quick_reply=None):
     url = "https://api.line.me/v2/bot/message/reply"
@@ -44,7 +27,6 @@ def send_reply(reply_token, text, quick_reply=None):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
     }
-
     message = {"type": "text", "text": text}
     if quick_reply:
         message["quickReply"] = {"items": quick_reply}
@@ -52,6 +34,25 @@ def send_reply(reply_token, text, quick_reply=None):
     data = {"replyToken": reply_token, "messages": [message]}
     requests.post(url, headers=headers, json=data)
 
+
+def reply_flex(reply_token, alt_text, contents):
+    url = "https://api.line.me/v2/bot/message/reply"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
+    }
+    data = {
+        "replyToken": reply_token,
+        "messages": [{
+            "type": "flex",
+            "altText": alt_text,
+            "contents": contents
+        }]
+    }
+    requests.post(url, headers=headers, json=data)
+
+
+# ================= データ =================
 
 def load_tasks():
     try:
@@ -71,57 +72,50 @@ def save_tasks(tasks):
         json.dump(tasks, f, ensure_ascii=False, indent=2)
 
 
-def task_bubble(title, tasks, is_global=False):
-    contents = []
+# ================= Flexバブル =================
+
+def build_task_bubble(title, tasks):
+    contents = [
+        {"type": "text", "text": title, "weight": "bold", "size": "lg"}
+    ]
 
     for t in tasks:
-        deadline = f"⏰ {t['deadline']}" if t.get("deadline") else ""
-
-        row = {
-            "type": "box",
-            "layout": "vertical",
-            "margin": "md",
-            "contents": [
-                {"type": "text", "text": t["text"], "size": "md", "wrap": True},
-            ]
-        }
-
-        if deadline:
-            row["contents"].append({
-                "type": "text",
-                "text": deadline,
-                "size": "sm",
-                "color": "#888888"
-            })
-
-        # ダミーボタン（STEP2で本物にする）
-        row["contents"].append({
+        line = {
             "type": "box",
             "layout": "horizontal",
-            "margin": "sm",
+            "margin": "md",
             "contents": [
-                {"type": "button", "style": "primary", "height": "sm",
-                 "action": {"type": "message", "label": "完了", "text": "完了モード"}},
-                {"type": "button", "style": "secondary", "height": "sm",
-                 "action": {"type": "message", "label": "削除", "text": "削除モード"}}
+                {"type": "text", "text": "⬜", "size": "sm"},
+                {"type": "text", "text": t["text"], "wrap": True, "flex": 5}
             ]
-        })
-
-        contents.append(row)
-
-    bubble = {
-        "type": "bubble",
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {"type": "text", "text": title, "weight": "bold", "size": "lg"}
-            ] + contents
         }
+
+        if t.get("deadline"):
+            line["contents"].append({
+                "type": "text",
+                "text": t["deadline"],
+                "size": "xs",
+                "color": "#888888",
+                "align": "end"
+            })
+
+        contents.append(line)
+
+    # ダミーボタン（まだ動かない）
+    contents.append({
+        "type": "button",
+        "style": "secondary",
+        "margin": "lg",
+        "action": {"type": "message", "label": "操作は次の段階で解放", "text": "noop"}
+    })
+
+    return {
+        "type": "bubble",
+        "body": {"type": "box", "layout": "vertical", "contents": contents}
     }
 
-    return bubble
 
+# ================= Webhook =================
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -141,7 +135,7 @@ def webhook():
         tasks["users"].setdefault(user_id, [])
         state = tasks["states"].get(user_id)
 
-        # ================= 一覧（Flex版） =================
+        # ===== 一覧（ここだけFlex化） =====
         if clean_message == "一覧":
             personal_tasks = [t for t in tasks["users"][user_id] if t["status"] != "done"]
             global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
@@ -152,15 +146,15 @@ def webhook():
 
             bubbles = []
             if personal_tasks:
-                bubbles.append(task_bubble("🗓 あなたの予定", personal_tasks))
+                bubbles.append(build_task_bubble("🗓 あなたの予定", personal_tasks))
             if global_tasks:
-                bubbles.append(task_bubble("🌍 全体予定", global_tasks, True))
+                bubbles.append(build_task_bubble("🌍 全体予定", global_tasks))
 
             carousel = {"type": "carousel", "contents": bubbles}
             reply_flex(reply_token, "タスク一覧", carousel)
             continue
 
-        # ===== ここから下は既存ロジックそのまま =====
+        # ===== 以降のロジックは完全に元のまま =====
 
         if clean_message == "予定追加モード":
             tasks["states"][user_id] = "add_personal"
@@ -186,4 +180,95 @@ def webhook():
             send_reply(reply_token, "削除する番号を送ってね（例: 1 G2）")
             continue
 
-        # （以下、追加・完了・削除の既存処理はあなたのコードそのままなので省略せず続けてOK）
+        # ===== 予定追加 =====
+        if state in ["add_personal", "add_global"]:
+            parts = user_message.split(" ", 1)
+            deadline = None
+            text = user_message
+
+            try:
+                possible_date = parts[0]
+                datetime.strptime(possible_date, "%Y-%m-%d")
+                if len(parts) == 2:
+                    deadline = possible_date
+                    text = parts[1]
+            except:
+                pass
+
+            task = {"text": text, "deadline": deadline, "status": "pending"}
+
+            if state == "add_personal":
+                tasks["users"][user_id].append(task)
+                reply = f"📝予定追加『{text}』"
+            else:
+                task["done_by"] = []
+                tasks["global"].append(task)
+                reply = f"🌍全体予定追加『{text}』"
+
+            if deadline:
+                reply += f"\n⏰締切: {deadline}"
+
+            tasks["states"][user_id] = None
+            save_tasks(tasks)
+            send_reply(reply_token, reply, QUICK_MENU)
+            continue
+
+        # ===== 完了 =====
+        if state == "complete_wait":
+            maps = tasks.get("maps", {}).get(user_id, {})
+            nums = user_message.split()
+
+            for n in nums:
+                if n.startswith("G") and n[1:].isdigit():
+                    idx = int(n[1:]) - 1
+                    if 0 <= idx < len(maps.get("global_map", [])):
+                        real_index = maps["global_map"][idx]
+                        tasks["global"][real_index].setdefault("done_by", []).append(user_id)
+
+                elif n.isdigit():
+                    idx = int(n) - 1
+                    if 0 <= idx < len(maps.get("personal_map", [])):
+                        real_index = maps["personal_map"][idx]
+                        tasks["users"][user_id][real_index]["status"] = "done"
+
+            tasks["states"][user_id] = None
+            save_tasks(tasks)
+            send_reply(reply_token, "✅ 完了にしたよ！", QUICK_MENU)
+            continue
+
+        # ===== 削除 =====
+        if state == "delete_wait":
+            maps = tasks.get("maps", {}).get(user_id, {})
+            nums = sorted(user_message.split(), reverse=True)
+
+            for n in nums:
+                if n.startswith("G") and n[1:].isdigit() and user_id in ADMIN_USERS:
+                    idx = int(n[1:]) - 1
+                    if 0 <= idx < len(maps.get("global_map", [])):
+                        real_index = maps["global_map"][idx]
+                        tasks["global"].pop(real_index)
+
+                elif n.isdigit():
+                    idx = int(n) - 1
+                    if 0 <= idx < len(maps.get("personal_map", [])):
+                        real_index = maps["personal_map"][idx]
+                        tasks["users"][user_id].pop(real_index)
+
+            tasks["states"][user_id] = None
+            save_tasks(tasks)
+            send_reply(reply_token, "🗑 削除したよ！", QUICK_MENU)
+            continue
+
+        send_reply(reply_token, "下のメニューから操作してね👇", QUICK_MENU)
+
+    return "OK", 200
+
+
+@app.route("/")
+def home():
+    return "Bot is running!"
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
