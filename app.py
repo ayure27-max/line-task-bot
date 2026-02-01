@@ -136,35 +136,35 @@ def webhook():
             text = user_message
             
             # 先頭が日付っぽい場合だけ締切として処理
-                try:
-                    possible_date = parts[0]
-                    datetime.strptime(possible_date, "%Y-%m-%d")
-                    if len(parts) == 2:
-                        deadline = possible_date
-                        text = parts[1]
+            try:
+                possible_date = parts[0]
+                datetime.strptime(possible_date, "%Y-%m-%d")
+                if len(parts) == 2:
+                    deadline = possible_date
+                    text = parts[1]
                         
-                except:
-                    pass  # 日付じゃなければ締切なし予定
+            except:
+                pass  # 日付じゃなければ締切なし予定
                     
-                task = {"text": text, "deadline": deadline, "status": "pending"}
+            task = {"text": text, "deadline": deadline, "status": "pending"}
                 
-                if state == "add_personal":
-                    tasks["users"][user_id].append(task)
-                    reply = f"📝予定追加『{text}』"
-                else:
-                    task["done_by"] = []
-                    tasks["global"].append(task)
-                    reply = f"🌍全体予定追加『{text}』"
+            if state == "add_personal":
+                tasks["users"][user_id].append(task)
+                reply = f"📝予定追加『{text}』"
+            else:
+                task["done_by"] = []
+                tasks["global"].append(task)
+                reply = f"🌍全体予定追加『{text}』"
                     
-                if deadline:
-                    reply += f"\n⏰締切: {deadline}"
-                else:
-                    reply += "\n⏰締切なし"
+            if deadline:
+                reply += f"\n⏰締切: {deadline}"
+            else:
+                reply += "\n⏰締切なし"
 
-                tasks["states"][user_id] = None
-                save_tasks(tasks)
-                send_reply(reply_token, reply, QUICK_MENU)
-                continue
+            tasks["states"][user_id] = None
+            save_tasks(tasks)
+            send_reply(reply_token, reply, QUICK_MENU)
+            continue
 
         # ===== 完了処理 =====
         if state == "complete":
