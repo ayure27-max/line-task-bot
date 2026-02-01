@@ -210,6 +210,7 @@ def webhook():
             "active": {},
             "history": {}
         })
+        print(json.dumps(tasks["checklists"][user_id], indent=2, ensure_ascii=False))
         state = tasks["states"].get(user_id)
         
         # ===== 一覧（統合Flex版） =====
