@@ -1,9 +1,9 @@
+from datetime import datetime
 from flask import Flask, request
 import os
 import requests
 import json
 import shutil
-from datetime import datetime
 
 app = Flask(__name__)
 
@@ -139,7 +139,25 @@ def webhook():
 
         # ===== モード開始コマンド =====
         if clean_message == "予定追加モード":
-            tasks["states"][user_id] = "add_task"
+            state == "add_task":
+            parts = user_message.split(" ", 1)
+            
+            if len(parts) == 2:
+                date_str, text = parts
+                try:
+                deadline = datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
+                tasks["users"][user_id].append({
+                "text": text,
+                "status": "pending",
+                "deadline": deadline
+                })
+                reply = f"予定『{text}』を追加！📅締切: {deadline}"
+                except:
+                reply = "日付は YYYY-MM-DD 形式で送ってね！例: 2026-02-10 会議"
+            else:
+                reply = "『日付 内容』の順で送ってね！例: 2026-02-10 会議"
+                
+            tasks["states"][user_id] = None              
             save_tasks(tasks)
             send_reply(reply_token, "追加したい予定を送ってね！", QUICK_MENU)
 
