@@ -244,7 +244,54 @@ def webhook():
             carousel = {"type": "carousel", "contents": bubbles[:10]}
             reply_flex(reply_token, "タスク一覧", carousel)
             continue
-
+            
+        # ===== チェックリスト作成モード開始 =====
+        if clean_message == "チェック作成モード":
+            tasks["checklists"].setdefault(user_id, {"templates": [], "editing": None})
+            
+            tasks["checklists"][user_id]["editing"] = {
+                 "name": None,
+                 "items": []
+            }
+            
+            save_tasks(tasks)
+            send_reply(reply_token,
+                 "🧩 チェックリストテンプレ作成開始！\nまずは名前を送ってね",
+                 QUICK_MENU
+            )
+            continue
+            
+        editing = tasks.get("checklists", {}).get(user_id, {}).get("editing")
+        
+        if editing and editing["name"] is None:
+            editing["name"] = user_message
+            save_tasks(tasks)
+            send_reply(reply_token,
+                f"📋 テンプレ名『{user_message}』登録！\n次はチェック項目を1行ずつ送ってね\n完了したら『保存』",
+                QUICK_MENU
+            )
+            continue
+            
+        if editing and editing["name"] and clean_message not in ["保存", "削除", "上へ", "下へ"]:
+            editing["items"].append(user_message)
+            save_tasks(tasks)
+            send_reply(reply_token,
+                 f"✅ 追加: {user_message}\n現在{len(editing['items'])}項目\n『保存』で完成",
+                 QUICK_MENU
+            )
+            continue
+            
+        if editing and clean_message == "保存":
+            tasks["checklists"][user_id]["templates"].append(editing)
+            tasks["checklists"][user_id]["editing"] = None
+            save_tasks(tasks)
+            
+            send_reply(reply_token,
+                f"🎉 テンプレ『{editing['name']}』保存完了！",
+                QUICK_MENU
+            )
+            continue
+            
         # ===== 以下元のロジック =====
         if clean_message == "予定追加モード":
             tasks["states"][user_id] = "add_personal"
