@@ -81,32 +81,31 @@ def build_task_bubble(title, tasks):
     ]
 
     for t in tasks:
-        row_contents = [
-            {"type": "text", "text": "⬜", "size": "sm"},
-            {
-                "type": "text",
-                "text": t["text"],
-                "wrap": True,
-                "size": "sm"
-            }
-        ]
+        text = str(t.get("text", "（内容不明）"))
+        deadline = t.get("deadline")
 
-        if t.get("deadline"):
-            row_contents.append({
+        row = {
+            "type": "box",
+            "layout": "horizontal",
+            "margin": "md",
+            "contents": [
+                {"type": "text", "text": "⬜", "size": "sm"},
+                {"type": "text", "text": text, "wrap": True, "flex": 5}
+            ]
+        }
+
+        if deadline:
+            row["contents"].append({
                 "type": "text",
-                "text": t["deadline"],
+                "text": str(deadline),
                 "size": "xs",
-                "color": "#888888"
+                "color": "#888888",
+                "align": "end"
             })
 
-        body_contents.append({
-            "type": "box",
-            "layout": "vertical",   # ← 横並びやめる（安定優先）
-            "margin": "md",
-            "contents": row_contents
-        })
+        body_contents.append(row)
 
-    bubble = {
+    return {
         "type": "bubble",
         "body": {
             "type": "box",
@@ -116,17 +115,15 @@ def build_task_bubble(title, tasks):
         "footer": {
             "type": "box",
             "layout": "vertical",
-            "contents": [
-                {
-                    "type": "button",
-                    "style": "secondary",
-                    "action": {
-                        "type": "message",
-                        "label": "操作は次の段階で解放",
-                        "text": "noop"
-                    }
+            "contents": [{
+                "type": "button",
+                "style": "secondary",
+                "action": {
+                    "type": "message",
+                    "label": "操作は次の段階で解放",
+                    "text": "noop"
                 }
-            ]
+            }]
         }
     }
 
