@@ -34,7 +34,6 @@ def send_reply(reply_token, text, quick_reply=None):
     data = {"replyToken": reply_token, "messages": [message]}
     requests.post(url, headers=headers, json=data)
 
-
 def reply_flex(reply_token, alt_text, contents):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
@@ -49,7 +48,10 @@ def reply_flex(reply_token, alt_text, contents):
             "contents": contents
         }]
     }
-    requests.post(url, headers=headers, json=data)
+
+    r = requests.post(url, headers=headers, json=data)
+    print("Flex status:", r.status_code)
+    print("Flex response:", r.text)
 
 
 # ================= データ =================
@@ -73,14 +75,13 @@ def save_tasks(tasks):
 
 
 # ================= Flexバブル =================
-
 def build_task_bubble(title, tasks):
-    contents = [
+    body_contents = [
         {"type": "text", "text": title, "weight": "bold", "size": "lg"}
     ]
 
     for t in tasks:
-        line = {
+        row = {
             "type": "box",
             "layout": "horizontal",
             "margin": "md",
@@ -91,7 +92,7 @@ def build_task_bubble(title, tasks):
         }
 
         if t.get("deadline"):
-            line["contents"].append({
+            row["contents"].append({
                 "type": "text",
                 "text": t["deadline"],
                 "size": "xs",
@@ -99,21 +100,33 @@ def build_task_bubble(title, tasks):
                 "align": "end"
             })
 
-        contents.append(line)
+        body_contents.append(row)
 
-    # ダミーボタン（まだ動かない）
-    contents.append({
-        "type": "button",
-        "style": "secondary",
-        "margin": "lg",
-        "action": {"type": "message", "label": "操作は次の段階で解放", "text": "noop"}
-    })
-
-    return {
+    bubble = {
         "type": "bubble",
-        "body": {"type": "box", "layout": "vertical", "contents": contents}
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": body_contents
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "secondary",
+                    "action": {
+                        "type": "message",
+                        "label": "操作は次の段階で解放",
+                        "text": "noop"
+                    }
+                }
+            ]
+        }
     }
 
+    return bubble
 
 # ================= Webhook =================
 
