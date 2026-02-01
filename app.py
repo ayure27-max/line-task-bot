@@ -327,7 +327,9 @@ def webhook():
                         send_reply(reply_token, "🔄 並び替えたよ", QUICK_MENU)
                     else:
                         send_reply(reply_token, "番号が不正だよ", QUICK_MENU)
-                    continue
+                except:
+                    send_reply(reply_token, "使い方: mv 5 2", QUICK_MENU)
+                continue
                     
             # 📋 編集中リスト表示
             if msg == "list":
