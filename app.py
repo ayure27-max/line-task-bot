@@ -81,26 +81,30 @@ def build_task_bubble(title, tasks):
     ]
 
     for t in tasks:
-        row = {
-            "type": "box",
-            "layout": "horizontal",
-            "margin": "md",
-            "contents": [
-                {"type": "text", "text": "⬜", "size": "sm"},
-                {"type": "text", "text": t["text"], "wrap": True, "flex": 5}
-            ]
-        }
+        row_contents = [
+            {"type": "text", "text": "⬜", "size": "sm"},
+            {
+                "type": "text",
+                "text": t["text"],
+                "wrap": True,
+                "size": "sm"
+            }
+        ]
 
         if t.get("deadline"):
-            row["contents"].append({
+            row_contents.append({
                 "type": "text",
                 "text": t["deadline"],
                 "size": "xs",
-                "color": "#888888",
-                "align": "end"
+                "color": "#888888"
             })
 
-        body_contents.append(row)
+        body_contents.append({
+            "type": "box",
+            "layout": "vertical",   # ← 横並びやめる（安定優先）
+            "margin": "md",
+            "contents": row_contents
+        })
 
     bubble = {
         "type": "bubble",
