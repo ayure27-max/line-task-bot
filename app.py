@@ -328,7 +328,15 @@ def webhook():
                     else:
                         send_reply(reply_token, "番号が不正だよ", QUICK_MENU)
                     continue
-                    
+        # 📋 編集中リスト表示
+        if msg == "list":
+            if not editing["items"]:
+                send_reply(reply_token, "まだ項目がないよ", QUICK_MENU)
+            else:
+                lines = "\n".join(f"{i+1}. {t}" for i, t in enumerate(editing["items"]))
+                send_reply(reply_token, f"🛠 編集中リスト\n{lines}", QUICK_MENU)
+            continue
+            
         # ===== 以下元のロジック =====
         if clean_message == "予定追加モード":
             tasks["states"][user_id] = "add_personal"
