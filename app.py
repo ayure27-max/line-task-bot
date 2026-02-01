@@ -68,7 +68,7 @@ def load_tasks():
             data.setdefault("checklists", {})
             return data
     except:
-        return {"users": {}, "global": [], "states": {}, "maps": {}"checklists": {}}
+        return {"users": {}, "global": [], "states": {}, "maps": {},"checklists": {}}
 
 
 def save_tasks(tasks):
