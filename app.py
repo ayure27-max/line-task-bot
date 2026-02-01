@@ -144,6 +144,8 @@ def webhook():
 
         # ===== 一覧 =====
         if clean_message == "一覧":
+            for g in tasks["global"]:
+                g.setdefault("done_by", [])
             personal_tasks = [t for t in tasks["users"][user_id] if t.get("status") != "done"]
             global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
 
