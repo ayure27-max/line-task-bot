@@ -131,31 +131,40 @@ def webhook():
         # ===== 予定追加処理 =====
         if state in ["add_personal", "add_global"]:
             parts = user_message.split(" ", 1)
-            if len(parts) != 2:
-                send_reply(reply_token, "『日付 内容』形式で送ってね！", QUICK_MENU)
+            
+            deadline = None
+            text = user_message
+            
+            # 先頭が日付っぽい場合だけ締切として処理
+                try:
+                    possible_date = parts[0]
+                    datetime.strptime(possible_date, "%Y-%m-%d")
+                    if len(parts) == 2:
+                        deadline = possible_date
+                        text = parts[1]
+                        
+                except:
+                    pass  # 日付じゃなければ締切なし予定
+                    
+                task = {"text": text, "deadline": deadline, "status": "pending"}
+                
+                if state == "add_personal":
+                    tasks["users"][user_id].append(task)
+                    reply = f"📝予定追加『{text}』"
+                else:
+                    task["done_by"] = []
+                    tasks["global"].append(task)
+                    reply = f"🌍全体予定追加『{text}』"
+                    
+                if deadline:
+                    reply += f"\n⏰締切: {deadline}"
+                else:
+                    reply += "\n⏰締切なし"
+
+                tasks["states"][user_id] = None
+                save_tasks(tasks)
+                send_reply(reply_token, reply, QUICK_MENU)
                 continue
-
-            date_str, text = parts
-            try:
-                deadline = datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
-            except:
-                send_reply(reply_token, "日付は YYYY-MM-DD 形式で！", QUICK_MENU)
-                continue
-
-            task = {"text": text, "deadline": deadline, "status": "pending"}
-
-            if state == "add_personal":
-                tasks["users"][user_id].append(task)
-                reply = f"📝予定追加『{text}』締切:{deadline}"
-            else:
-                task["done_by"] = []
-                tasks["global"].append(task)
-                reply = f"🌍全体予定追加『{text}』締切:{deadline}"
-
-            tasks["states"][user_id] = None
-            save_tasks(tasks)
-            send_reply(reply_token, reply, QUICK_MENU)
-            continue
 
         # ===== 完了処理 =====
         if state == "complete":
