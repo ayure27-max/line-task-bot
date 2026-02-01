@@ -76,40 +76,104 @@ def save_tasks(tasks):
 
 
 # ================= Flexバブル =================
+# ================= Flex一覧バブル（統合版） =================
 
-def build_task_bubble(title, tasks):
-    body_contents = [
-        {"type": "text", "text": title, "weight": "bold", "size": "lg"}
+def build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks):
+    body = [
+        {"type": "text", "text": "📋 タスク一覧", "weight": "bold", "size": "lg"}
     ]
 
-    for t in tasks:
-        text = str(t.get("text", "（内容不明）"))
-        deadline = t.get("deadline")
+    personal_map = []
+    global_map = []
 
-        row = {
-            "type": "box",
-            "layout": "horizontal",
-            "margin": "md",
-            "contents": [
-                {"type": "text", "text": "⬜", "size": "sm"},
-                {"type": "text", "text": text, "wrap": True, "flex": 5}
-            ]
-        }
+    # ---------- 個人予定 ----------
+    if personal_tasks:
+        body.append({"type": "text", "text": "🗓 あなたの予定", "margin": "lg", "weight": "bold"})
 
-        if deadline:
-            row["contents"].append({
-                "type": "text",
-                "text": str(deadline),
-                "size": "xs",
-                "color": "#888888",
-                "align": "end"
-            })
+        for i, t in enumerate(personal_tasks, start=1):
+            personal_map.append(tasks["users"][user_id].index(t))
 
-        body_contents.append(row)
+            row = {
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "sm",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "height": "sm",
+                        "action": {"type": "message", "label": str(i), "text": str(i)}
+                    },
+                    {
+                        "type": "text",
+                        "text": str(t.get("text", "（内容不明）")),
+                        "wrap": True,
+                        "flex": 5,
+                        "margin": "md"
+                    }
+                ]
+            }
+
+            if t.get("deadline"):
+                row["contents"].append({
+                    "type": "text",
+                    "text": str(t["deadline"]),
+                    "size": "xs",
+                    "color": "#888888",
+                    "align": "end"
+                })
+
+            body.append(row)
+
+    # ---------- 全体予定 ----------
+    if global_tasks:
+        body.append({"type": "text", "text": "🌍 全体予定", "margin": "lg", "weight": "bold"})
+
+        for i, t in enumerate(global_tasks, start=1):
+            global_map.append(tasks["global"].index(t))
+
+            row = {
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "sm",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "height": "sm",
+                        "action": {"type": "message", "label": f"G{i}", "text": f"G{i}"}
+                    },
+                    {
+                        "type": "text",
+                        "text": str(t.get("text", "（内容不明）")),
+                        "wrap": True,
+                        "flex": 5,
+                        "margin": "md"
+                    }
+                ]
+            }
+
+            if t.get("deadline"):
+                row["contents"].append({
+                    "type": "text",
+                    "text": str(t["deadline"]),
+                    "size": "xs",
+                    "color": "#888888",
+                    "align": "end"
+                })
+
+            body.append(row)
+
+    # 🔥 マッピング保存（超重要）
+    tasks["maps"][user_id] = {
+        "personal_map": personal_map,
+        "global_map": global_map
+    }
+    save_tasks(tasks)
 
     return {
         "type": "bubble",
-        "body": {"type": "box", "layout": "vertical", "contents": body_contents},
+        "body": {"type": "box", "layout": "vertical", "contents": body},
         "footer": {
             "type": "box",
             "layout": "vertical",
@@ -141,18 +205,23 @@ def webhook():
 
         tasks["users"].setdefault(user_id, [])
         state = tasks["states"].get(user_id)
-
-        # ===== 一覧 =====
+        
+        # ===== 一覧（統合Flex版） =====
         if clean_message == "一覧":
             for g in tasks["global"]:
                 g.setdefault("done_by", [])
+                
             personal_tasks = [t for t in tasks["users"][user_id] if t.get("status") != "done"]
             global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-
+            
             if not personal_tasks and not global_tasks:
                 send_reply(reply_token, "予定はまだありません！", QUICK_MENU)
                 continue
-
+            
+            bubble = build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks)
+            reply_flex(reply_token, "タスク一覧", bubble)
+            continue
+        
             bubbles = []
 
             if personal_tasks:
