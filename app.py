@@ -34,6 +34,7 @@ def send_reply(reply_token, text, quick_reply=None):
     data = {"replyToken": reply_token, "messages": [message]}
     requests.post(url, headers=headers, json=data)
 
+
 def reply_flex(reply_token, alt_text, contents):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
@@ -75,6 +76,7 @@ def save_tasks(tasks):
 
 
 # ================= Flexバブル =================
+
 def build_task_bubble(title, tasks):
     body_contents = [
         {"type": "text", "text": title, "weight": "bold", "size": "lg"}
@@ -107,22 +109,14 @@ def build_task_bubble(title, tasks):
 
     return {
         "type": "bubble",
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": body_contents
-        },
+        "body": {"type": "box", "layout": "vertical", "contents": body_contents},
         "footer": {
             "type": "box",
             "layout": "vertical",
             "contents": [{
                 "type": "button",
                 "style": "secondary",
-                "action": {
-                    "type": "message",
-                    "label": "操作は次の段階で解放",
-                    "text": "noop"
-                }
+                "action": {"type": "message", "label": "操作は次の段階で解放", "text": "noop"}
             }]
         }
     }
@@ -148,40 +142,32 @@ def webhook():
         tasks["users"].setdefault(user_id, [])
         state = tasks["states"].get(user_id)
 
-        # ===== 一覧（ここだけFlex化） =====
+        # ===== 一覧 =====
         if clean_message == "一覧":
             personal_tasks = [t for t in tasks["users"][user_id] if t.get("status") != "done"]
             global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-            
+
             if not personal_tasks and not global_tasks:
                 send_reply(reply_token, "予定はまだありません！", QUICK_MENU)
                 continue
-                
-        bubbles = []
-        
-        # 🗓 個人予定
-        if personal_tasks:
-        bubbles.append(build_task_bubble("🗓 あなたの予定", personal_tasks))
-        
-        # 🌍 全体予定
-        if global_tasks:
-        bubbles.append(build_task_bubble("🌍 全体予定", global_tasks))
-        
-        # 🚑 念のため1個も無い場合の保険
-        if not bubbles:
-        send_reply(reply_token, "予定の表示に失敗しましたがデータは無事です🙏", QUICK_MENU)
-        continue
-        
-        carousel = {
-            "type": "carousel",
-            "contents": bubbles[:10]  # LINE上限対策
-        }
-            
-        reply_flex(reply_token, "タスク一覧", carousel)
-        continue
 
-        # ===== 以降のロジックは完全に元のまま =====
+            bubbles = []
 
+            if personal_tasks:
+                bubbles.append(build_task_bubble("🗓 あなたの予定", personal_tasks))
+
+            if global_tasks:
+                bubbles.append(build_task_bubble("🌍 全体予定", global_tasks))
+
+            if not bubbles:
+                send_reply(reply_token, "予定の表示に失敗しましたがデータは無事です🙏", QUICK_MENU)
+                continue
+
+            carousel = {"type": "carousel", "contents": bubbles[:10]}
+            reply_flex(reply_token, "タスク一覧", carousel)
+            continue
+
+        # ===== 以下元のロジック =====
         if clean_message == "予定追加モード":
             tasks["states"][user_id] = "add_personal"
             save_tasks(tasks)
