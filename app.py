@@ -154,23 +154,35 @@ def webhook():
 
         # ===== 一覧（ここだけFlex化） =====
         if clean_message == "一覧":
-            print(">>> 一覧分岐に入りました")
-            personal_tasks = [t for t in tasks["users"][user_id] if t["status"] != "done"]
+            personal_tasks = [t for t in tasks["users"][user_id] if t.get("status") != "done"]
             global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-
+            
             if not personal_tasks and not global_tasks:
                 send_reply(reply_token, "予定はまだありません！", QUICK_MENU)
                 continue
-
-            bubbles = []
-            if personal_tasks:
-                bubbles.append(build_task_bubble("🗓 あなたの予定", personal_tasks))
-            if global_tasks:
-                bubbles.append(build_task_bubble("🌍 全体予定", global_tasks))
-
-            carousel = {"type": "carousel", "contents": bubbles}
-            reply_flex(reply_token, f"タスク一覧 {datetime.now().strftime('%H:%M:%S')}", carousel)
-            continue
+                
+        bubbles = []
+        
+        # 🗓 個人予定
+        if personal_tasks:
+        bubbles.append(build_task_bubble("🗓 あなたの予定", personal_tasks))
+        
+        # 🌍 全体予定
+        if global_tasks:
+        bubbles.append(build_task_bubble("🌍 全体予定", global_tasks))
+        
+        # 🚑 念のため1個も無い場合の保険
+        if not bubbles:
+        send_reply(reply_token, "予定の表示に失敗しましたがデータは無事です🙏", QUICK_MENU)
+        continue
+        
+        carousel = {
+            "type": "carousel",
+            "contents": bubbles[:10]  # LINE上限対策
+        }
+            
+        reply_flex(reply_token, "タスク一覧", carousel)
+        continue
 
         # ===== 以降のロジックは完全に元のまま =====
 
