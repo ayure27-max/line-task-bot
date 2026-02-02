@@ -361,6 +361,16 @@ def webhook():
                     
                 return "OK"
                 
+            # 🏁 チェック終了
+            if clean_message == "finish":
+                if checklists.get("active"):
+                    checklists["active"] = None
+                    save_tasks(tasks)
+                    send_reply(reply_token, "チェックを終了したよ", QUICK_MENU)
+                else:
+                    send_reply(reply_token, "実行中のチェックは無いよ", QUICK_MENU)
+                return "OK"
+                
                 if not editing["items"]:
                     send_reply(reply_token, "まだ項目がないよ", QUICK_MENU)
                 else:
