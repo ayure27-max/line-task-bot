@@ -311,7 +311,7 @@ def webhook():
                          send_reply(reply_token, "番号が不正だよ", QUICK_MENU)
                 except:
                     send_reply(reply_token, "使い方: del 3", QUICK_MENU)
-                continue
+                    continue
                 
             # 🔄 並び替え（例: mv 5 2 → 5番を2番目へ）
             if msg.startswith("mv "):
@@ -329,7 +329,7 @@ def webhook():
                         send_reply(reply_token, "番号が不正だよ", QUICK_MENU)
                 except:
                     send_reply(reply_token, "使い方: mv 5 2", QUICK_MENU)
-                continue
+                    continue
                     
             # 📋 編集中リスト表示
             if msg == "list":
@@ -406,7 +406,7 @@ def webhook():
                 lines = "\n".join(f"{i+1}. {t['name']} ({len(t['items'])}項目)" for i, t in enumerate(templates))
                 send_reply(reply_token, f"📚 テンプレ一覧\n{lines}", QUICK_MENU)
                 
-            return "OK"
+                return "OK"
             
         # ▶ テンプレからチェック開始
         if clean_message.startswith("start "):
@@ -542,8 +542,8 @@ def webhook():
             continue
 
         send_reply(reply_token, "下のメニューから操作してね👇", QUICK_MENU)
-
-    return "OK", 200
+        
+        return "OK", 200
 
 
 @app.route("/")
