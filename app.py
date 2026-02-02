@@ -344,6 +344,23 @@ def webhook():
                     send_reply(reply_token, text, QUICK_MENU)
                     return "OK"
                     
+            # ☑ チェック完了
+            if clean_message.startswith("done "):
+                active = checklists.get("active")
+                if not active:
+                    send_reply(reply_token, "実行中のチェックは無いよ", QUICK_MENU)
+                    return "OK"
+                    
+                try:
+                    idx = int(clean_message.split()[1]) - 1
+                    active["items"][idx]["done"] = True
+                    save_tasks(tasks)
+                    send_reply(reply_token, "チェック完了！", QUICK_MENU)
+                except:
+                    send_reply(reply_token, "番号が正しくないよ", QUICK_MENU)
+                    
+                return "OK"
+                
                 if not editing["items"]:
                     send_reply(reply_token, "まだ項目がないよ", QUICK_MENU)
                 else:
