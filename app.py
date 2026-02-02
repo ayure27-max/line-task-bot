@@ -339,7 +339,44 @@ def webhook():
                     lines = "\n".join(f"{i+1}. {t}" for i, t in enumerate(editing["items"]))
                     send_reply(reply_token, f"🛠 編集中リスト\n{lines}", QUICK_MENU)
                     continue
+                    
+            # 💾 テンプレ保存
+            if msg.startswith("save "):
+                name = msg[5:].strip()
+                
+                if not name:
+                    send_reply(reply_token, "チェックリスト名を入れてね", QUICK_MENU)
+                    return "OK"
+                    
+                    if not editing["items"]:
+                        send_reply(reply_token, "項目が空だよ", QUICK_MENU)
+                        return "OK"
+                        
+                    template = {
+                        "name": name,
+                         "items": editing["items"][:]
+                    }
+                    
+                    checklists["templates"].append(template)
+                    checklists["editing"] = None
+                    save_tasks(tasks)
+                    
+                    send_reply(reply_token, f"✅ テンプレ『{name}』を保存したよ", QUICK_MENU)
+                    return "OK"
             
+        # 📚 テンプレ一覧表示
+        if clean_message == "templates":
+            checklists = tasks.setdefault("checklists", {}).setdefault(user_id, {"templates": [], "editing": None})
+            templates = checklists.get("templates", [])
+            
+            if not templates:
+                send_reply(reply_token, "保存されたテンプレはまだ無いよ", QUICK_MENU)
+            else:
+                lines = "\n".join(f"{i+1}. {t['name']} ({len(t['items'])}項目)" for i, t in enumerate(templates))
+                send_reply(reply_token, f"📚 テンプレ一覧\n{lines}", QUICK_MENU)
+                
+            return "OK"
+
         # ===== 以下元のロジック =====
         if clean_message == "予定追加モード":
             tasks["states"][user_id] = "add_personal"
