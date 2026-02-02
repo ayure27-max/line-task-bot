@@ -247,7 +247,7 @@ def webhook():
             
         # ===== チェックリスト作成モード開始 =====
         if clean_message == "チェック作成モード":
-            tasks["checklists"].setdefault(user_id, {"templates": [], "editing": NoneNone, "active": None})
+            tasks["checklists"].setdefault(user_id, {"templates": [], "editing": None, "active": None})
             
             tasks["checklists"][user_id]["editing"] = {
                  "name": None,
@@ -369,14 +369,7 @@ def webhook():
                     send_reply(reply_token, "チェックを終了したよ", QUICK_MENU)
                 else:
                     send_reply(reply_token, "実行中のチェックは無いよ", QUICK_MENU)
-                return "OK"
-                
-                if not editing["items"]:
-                    send_reply(reply_token, "まだ項目がないよ", QUICK_MENU)
-                else:
-                    lines = "\n".join(f"{i+1}. {t}" for i, t in enumerate(editing["items"]))
-                    send_reply(reply_token, f"🛠 編集中リスト\n{lines}", QUICK_MENU)
-                    continue
+                return "
                     
             # 💾 テンプレ保存
             if msg.startswith("save "):
@@ -386,21 +379,21 @@ def webhook():
                     send_reply(reply_token, "チェックリスト名を入れてね", QUICK_MENU)
                     return "OK"
                     
-                    if not editing["items"]:
-                        send_reply(reply_token, "項目が空だよ", QUICK_MENU)
-                        return "OK"
+                if not editing["items"]:
+                    send_reply(reply_token, "項目が空だよ", QUICK_MENU)
+                    return "OK"
                         
-                    template = {
-                        "name": name,
-                         "items": editing["items"][:]
+                template = {
+                    "name": name,
+                    "items": editing["items"][:]
                     }
                     
-                    checklists["templates"].append(template)
-                    checklists["editing"] = None
-                    save_tasks(tasks)
+                checklists["templates"].append(template)
+                checklists["editing"] = None
+                save_tasks(tasks)
                     
-                    send_reply(reply_token, f"✅ テンプレ『{name}』を保存したよ", QUICK_MENU)
-                    return "OK"
+                send_reply(reply_token, f"✅ テンプレ『{name}』を保存したよ", QUICK_MENU)
+                return "OK"
             
         # 📚 テンプレ一覧表示
         if clean_message == "templates":
