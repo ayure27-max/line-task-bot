@@ -282,7 +282,19 @@ def webhook():
             continue
             
         if editing and clean_message == "保存":
-            tasks["checklists"][user_id]["templates"].append(editing)
+            templates = tasks["checklists"][user_id]["templates"]
+            existing = next((t for t in templates if t["name"] == editing["name"]), None)
+            
+            if existing:
+                existing["items"] = editing["items"][:]
+                msg = f"💾 テンプレ『{editing['name']}』を上書き保存したよ"
+            else:
+                templates.append({
+                    "name": editing["name"],
+                     "items": editing["items"][:]
+                })
+                msg = f"💾 テンプレ『{editing['name']}』を保存したよ"
+                
             tasks["checklists"][user_id]["editing"] = None
             save_tasks(tasks)
             
