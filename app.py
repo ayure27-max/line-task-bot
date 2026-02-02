@@ -369,7 +369,7 @@ def webhook():
                     send_reply(reply_token, "チェックを終了したよ", QUICK_MENU)
                 else:
                     send_reply(reply_token, "実行中のチェックは無いよ", QUICK_MENU)
-                return "
+                    return "OK"
                     
             # 💾 テンプレ保存
             if msg.startswith("save "):
