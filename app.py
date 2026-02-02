@@ -359,7 +359,7 @@ def webhook():
                 except:
                     send_reply(reply_token, "番号が正しくないよ", QUICK_MENU)
                     
-                return "OK"
+                    return "OK"
                 
             # 🏁 チェック終了
             if clean_message == "finish":
