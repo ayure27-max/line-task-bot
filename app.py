@@ -247,7 +247,7 @@ def webhook():
             
         # ===== チェックリスト作成モード開始 =====
         if clean_message == "チェック作成モード":
-            tasks["checklists"].setdefault(user_id, {"templates": [], "editing": None})
+            tasks["checklists"].setdefault(user_id, {"templates": [], "editing": NoneNone, "active": None})
             
             tasks["checklists"][user_id]["editing"] = {
                  "name": None,
@@ -333,6 +333,17 @@ def webhook():
                     
             # 📋 編集中リスト表示
             if msg == "list":
+                active = checklists.get("active")
+                if active:
+                    lines = []
+                    for i, item in enumerate(active["items"], 1):
+                        mark = "✅" if item["done"] else "⬜"
+                        lines.append(f"{i}. {mark} {item['text']}")
+                        
+                    text = f"🧾 実行中チェック：{active['name']}\n" + "\n".join(lines)
+                    send_reply(reply_token, text, QUICK_MENU)
+                    return "OK"
+                    
                 if not editing["items"]:
                     send_reply(reply_token, "まだ項目がないよ", QUICK_MENU)
                 else:
@@ -375,6 +386,35 @@ def webhook():
                 lines = "\n".join(f"{i+1}. {t['name']} ({len(t['items'])}項目)" for i, t in enumerate(templates))
                 send_reply(reply_token, f"📚 テンプレ一覧\n{lines}", QUICK_MENU)
                 
+            return "OK"
+            
+        # ▶ テンプレからチェック開始
+        if clean_message.startswith("start "):
+            try:
+                idx = int(clean_message.split()[1]) - 1
+            except:
+                send_reply(reply_token, "start 番号 で指定してね", QUICK_MENU)
+                return "OK"
+                
+            checklists = tasks.setdefault("checklists", {}).setdefault(
+            user_id, {"templates": [], "editing": None, "active": None}
+            )
+            
+            templates = checklists.get("templates", [])
+            
+            if idx < 0 or idx >= len(templates):
+                send_reply(reply_token, "その番号のテンプレは無いよ", QUICK_MENU)
+                return "OK"
+            
+            template = templates[idx]
+            
+            checklists["active"] = {
+                "name": template["name"],
+                "items": [{"text": item, "done": False} for item in template["items"]]
+            }
+                
+            save_tasks(tasks)
+            send_reply(reply_token, f"▶ チェック『{template['name']}』を開始！\nlist で表示できるよ", QUICK_MENU)
             return "OK"
 
         # ===== 以下元のロジック =====
