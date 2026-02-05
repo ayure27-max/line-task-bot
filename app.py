@@ -244,17 +244,34 @@ def task_row(task, label):
         "spacing": "sm",
         "contents": [
             {
-                "type": "box",
-                "layout": "horizontal",
-                "contents": [
-                    {"type": "text", "text": "⬜", "size": "sm", "flex": 1},
-                     {"type": "text", "text": task["text"] + deadline, "wrap": True, "flex": 5, "size": "sm"},
-                ]
+                "type": "text",
+                "text": "⬜",
+                "size": "sm",
+                "flex": 1
             },
             {
-                "type": "button",
-                "style": "secondary",
-                "height": "sm",
+                "type": "text",
+                "text": task["text"] + deadline,
+                "wrap": True,
+                "size": "sm",
+                "flex": 6
+            },
+            {
+                "type": "box",
+                "layout": "vertical",
+                "flex": 2,
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "完了",
+                        "size": "xs",
+                        "align": "center",
+                        "color": "#ffffff"
+                    }
+                ],
+                "backgroundColor": "#4CAF50",
+                "cornerRadius": "md",
+                "paddingAll": "4px",
                 "action": {
                     "type": "message",
                     "label": "完了",
