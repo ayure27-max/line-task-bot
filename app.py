@@ -229,21 +229,6 @@ def webhook():
             reply_flex(reply_token, "タスク一覧", bubble)
             continue
         
-            bubbles = []
-
-            if personal_tasks:
-                bubbles.append(build_task_bubble("🗓 あなたの予定", personal_tasks))
-
-            if global_tasks:
-                bubbles.append(build_task_bubble("🌍 全体予定", global_tasks))
-
-            if not bubbles:
-                send_reply(reply_token, "予定の表示に失敗しましたがデータは無事です🙏", QUICK_MENU)
-                continue
-
-            carousel = {"type": "carousel", "contents": bubbles[:10]}
-            reply_flex(reply_token, "タスク一覧", carousel)
-            continue
             
         # ===== チェックリスト作成モード開始 =====
         if clean_message == "チェック作成モード":
