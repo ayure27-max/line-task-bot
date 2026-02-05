@@ -12,7 +12,7 @@ TASK_FILE = "tasks.json"
 ADMIN_USERS = ["U179b29542e4d9d16aad9ee5b8a8eea18"]
 
 QUICK_MENU = [
-    {"type": "action", "action": {"type": "message", "label": "📋 一覧", "text": "一覧"}},
+    {"type": "action", "action": {"type": "message", "label": "📋 一覧", "text": "#menu_list"}},
     {"type": "action", "action": {"type": "message", "label": "➕ 予定追加", "text": "予定追加モード"}},
     {"type": "action", "action": {"type": "message", "label": "🌍 全体予定追加", "text": "全体追加モード"}},
     {"type": "action", "action": {"type": "message", "label": "✅ 完了", "text": "完了モード"}},
@@ -214,7 +214,7 @@ def webhook():
         state = tasks["states"].get(user_id)
         
         # ===== 一覧（統合Flex版） =====
-        if clean_message == "一覧":
+        if clean_message == "#menu_list":
             for g in tasks["global"]:
                 g.setdefault("done_by", [])
                 
