@@ -233,7 +233,6 @@ def build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks):
             "contents": contents
         }
     }
-    
 def task_row(task, label):
     deadline = f" ⏰{task['deadline']}" if task.get("deadline") else ""
 
@@ -242,12 +241,35 @@ def task_row(task, label):
         "layout": "horizontal",
         "margin": "md",
         "contents": [
-            {"type": "text", "text": "⬜", "size": "sm", "flex": 1},
-            {"type": "text", "text": task["text"] + deadline, "wrap": True, "flex": 5, "size": "sm"},
             {
-                "type": "button",
-                "style": "primary",
-                "height": "sm",
+                "type": "text",
+                "text": "⬜",
+                "size": "sm",
+                "flex": 1
+            },
+            {
+                "type": "text",
+                "text": task["text"] + deadline,
+                "wrap": True,
+                "size": "sm",
+                "flex": 6
+            },
+            {
+                "type": "box",
+                "layout": "vertical",
+                "flex": 2,
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "完了",
+                        "size": "xs",
+                        "align": "center",
+                        "color": "#ffffff"
+                    }
+                ],
+                "backgroundColor": "#4CAF50",
+                "cornerRadius": "md",
+                "paddingAll": "4px",
                 "action": {
                     "type": "message",
                     "label": "完了",
@@ -256,15 +278,7 @@ def task_row(task, label):
             }
         ]
     }
-    
-def empty_row():
-    return {
-        "type": "text",
-        "text": "予定はまだありません",
-        "size": "sm",
-        "color": "#999999",
-        "margin": "md"
-    }
+
 # ================= Webhook =================
 
 @app.route("/webhook", methods=["POST"])
