@@ -229,85 +229,7 @@ def webhook():
             reply_flex(reply_token, "タスク一覧", bubble)
             continue
             
-#========予定表flex表示========
-def build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks):
 
-    contents = []
-
-    contents.append({
-        "type": "text",
-        "text": "📋 予定一覧",
-        "weight": "bold",
-        "size": "xl"
-    })
-
-    contents.append({
-        "type": "text",
-        "text": "👤 あなたの予定",
-        "weight": "bold",
-        "margin": "lg"
-    })
-
-    if personal_tasks:
-        for i, task in enumerate(personal_tasks):
-            contents.append(task_row(task, f"P{i+1}"))
-    else:
-        contents.append(empty_row())
-
-    contents.append({
-        "type": "text",
-        "text": "🏢 全体予定",
-        "weight": "bold",
-        "margin": "lg"
-    })
-
-    if global_tasks:
-        for i, task in enumerate(global_tasks):
-            contents.append(task_row(task, f"G{i+1}"))
-    else:
-        contents.append(empty_row())
-
-    return {
-        "type": "bubble",
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "spacing": "sm",
-            "contents": contents
-        }
-    }
-    
-def task_row(task, label):
-    deadline = f" ⏰{task['deadline']}" if task.get("deadline") else ""
-
-    return {
-        "type": "box",
-        "layout": "horizontal",
-        "margin": "md",
-        "contents": [
-            {"type": "text", "text": "⬜", "size": "sm", "flex": 1},
-            {"type": "text", "text": task["text"] + deadline, "wrap": True, "flex": 5, "size": "sm"},
-            {
-                "type": "button",
-                "style": "primary",
-                "height": "sm",
-                "action": {
-                    "type": "message",
-                    "label": "完了",
-                    "text": f"done {label}"
-                }
-            }
-        ]
-    }
-    
-def empty_row():
-    return {
-        "type": "text",
-        "text": "予定はまだありません",
-        "size": "sm",
-        "color": "#999999",
-        "margin": "md"
-    }
             
         # ===== チェックリスト作成モード開始 =====
         if clean_message == "チェック作成モード":
@@ -630,3 +552,83 @@ def home():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+    
+    #========予定表flex表示========
+def build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks):
+
+    contents = []
+
+    contents.append({
+        "type": "text",
+        "text": "📋 予定一覧",
+        "weight": "bold",
+        "size": "xl"
+    })
+
+    contents.append({
+        "type": "text",
+        "text": "👤 あなたの予定",
+        "weight": "bold",
+        "margin": "lg"
+    })
+
+    if personal_tasks:
+        for i, task in enumerate(personal_tasks):
+            contents.append(task_row(task, f"P{i+1}"))
+    else:
+        contents.append(empty_row())
+
+    contents.append({
+        "type": "text",
+        "text": "🏢 全体予定",
+        "weight": "bold",
+        "margin": "lg"
+    })
+
+    if global_tasks:
+        for i, task in enumerate(global_tasks):
+            contents.append(task_row(task, f"G{i+1}"))
+    else:
+        contents.append(empty_row())
+
+    return {
+        "type": "bubble",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "sm",
+            "contents": contents
+        }
+    }
+    
+def task_row(task, label):
+    deadline = f" ⏰{task['deadline']}" if task.get("deadline") else ""
+
+    return {
+        "type": "box",
+        "layout": "horizontal",
+        "margin": "md",
+        "contents": [
+            {"type": "text", "text": "⬜", "size": "sm", "flex": 1},
+            {"type": "text", "text": task["text"] + deadline, "wrap": True, "flex": 5, "size": "sm"},
+            {
+                "type": "button",
+                "style": "primary",
+                "height": "sm",
+                "action": {
+                    "type": "message",
+                    "label": "完了",
+                    "text": f"done {label}"
+                }
+            }
+        ]
+    }
+    
+def empty_row():
+    return {
+        "type": "text",
+        "text": "予定はまだありません",
+        "size": "sm",
+        "color": "#999999",
+        "margin": "md"
+    }
