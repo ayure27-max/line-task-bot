@@ -339,14 +339,14 @@ def webhook():
                         
                     text = f"🧾 実行中チェック：{active['name']}\n" + "\n".join(lines)
                     send_reply(reply_token, text, QUICK_MENU)
-                    return "OK"
+                    continue
                     
             # ☑ チェック完了
             if clean_message.startswith("done "):
                 active = checklists.get("active")
                 if not active:
                     send_reply(reply_token, "実行中のチェックは無いよ", QUICK_MENU)
-                    return "OK"
+                    continue
                     
                 try:
                     idx = int(clean_message.split()[1]) - 1
@@ -356,7 +356,7 @@ def webhook():
                 except:
                     send_reply(reply_token, "番号が正しくないよ", QUICK_MENU)
                     
-                    return "OK"
+                    continue
                 
             # 🏁 チェック終了
             if clean_message == "finish":
@@ -366,7 +366,7 @@ def webhook():
                     send_reply(reply_token, "チェックを終了したよ", QUICK_MENU)
                 else:
                     send_reply(reply_token, "実行中のチェックは無いよ", QUICK_MENU)
-                    return "OK"
+                    continue
                     
             # 💾 テンプレ保存
             if msg.startswith("save "):
@@ -374,11 +374,11 @@ def webhook():
                 
                 if not name:
                     send_reply(reply_token, "チェックリスト名を入れてね", QUICK_MENU)
-                    return "OK"
+                    continue
                     
                 if not editing["items"]:
                     send_reply(reply_token, "項目が空だよ", QUICK_MENU)
-                    return "OK"
+                    continue
                         
                 template = {
                     "name": name,
@@ -390,7 +390,7 @@ def webhook():
                 save_tasks(tasks)
                     
                 send_reply(reply_token, f"✅ テンプレ『{name}』を保存したよ", QUICK_MENU)
-                return "OK"
+                continue
             
         # 📚 テンプレ一覧表示
         if clean_message == "templates":
@@ -403,7 +403,7 @@ def webhook():
                 lines = "\n".join(f"{i+1}. {t['name']} ({len(t['items'])}項目)" for i, t in enumerate(templates))
                 send_reply(reply_token, f"📚 テンプレ一覧\n{lines}", QUICK_MENU)
                 
-                return "OK"
+                continue
             
         # ▶ テンプレからチェック開始
         if clean_message.startswith("start "):
@@ -411,7 +411,7 @@ def webhook():
                 idx = int(clean_message.split()[1]) - 1
             except:
                 send_reply(reply_token, "start 番号 で指定してね", QUICK_MENU)
-                return "OK"
+                continue
                 
             checklists = tasks.setdefault("checklists", {}).setdefault(
             user_id, {"templates": [], "editing": None, "active": None}
@@ -421,7 +421,7 @@ def webhook():
             
             if idx < 0 or idx >= len(templates):
                 send_reply(reply_token, "その番号のテンプレは無いよ", QUICK_MENU)
-                return "OK"
+                continue
             
             template = templates[idx]
             
@@ -432,7 +432,7 @@ def webhook():
                 
             save_tasks(tasks)
             send_reply(reply_token, f"▶ チェック『{template['name']}』を開始！\nlist で表示できるよ", QUICK_MENU)
-            return "OK"
+            continue
 
         # ===== 以下元のロジック =====
         if clean_message == "予定追加モード":
