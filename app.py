@@ -239,14 +239,21 @@ def task_row(task, label):
 
     return {
         "type": "box",
-        "layout": "horizontal",
+        "layout": "vertical",
         "margin": "md",
+        "spacing": "sm",
         "contents": [
-            {"type": "text", "text": "⬜", "size": "sm", "flex": 1},
-            {"type": "text", "text": task["text"] + deadline, "wrap": True, "flex": 5, "size": "sm"},
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {"type": "text", "text": "⬜", "size": "sm", "flex": 1},
+                     {"type": "text", "text": task["text"] + deadline, "wrap": True, "flex": 5, "size": "sm"},
+                ]
+            },
             {
                 "type": "button",
-                "style": "primary",
+                "style": "secondary",
                 "height": "sm",
                 "action": {
                     "type": "message",
