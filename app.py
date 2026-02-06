@@ -2,7 +2,6 @@ from flask import Flask, request
 import os
 import requests
 import json
-from datetime import datetime
 
 app = Flask(__name__)
 
@@ -40,14 +39,14 @@ def load_tasks():
     try:
         with open(TASK_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            data.setdefault("users", {})
-            data.setdefault("global", [])
-            data.setdefault("states", {})
-            data.setdefault("maps", {})
-            data.setdefault("checklists", {})
+            data.setdefault({})
+            data.setdefault([])
+            data.setdefault({})
+            data.setdefault({})
+            data.setdefault("{})
             return data
     except:
-        return {"users": {}, "global": [], "states": {}, "maps": {},"checklists": {}}
+        return 
 
 
 def save_tasks(tasks):
@@ -275,24 +274,10 @@ def webhook():
     body = request.get_json()
     events = body.get("events", [])
     tasks = load_tasks()
-
+    
     for event in events:
-        if "message" not in event or event["message"]["type"] != "text":
-            continue
-
         user_id = event["source"]["userId"]
         reply_token = event["replyToken"]
-        user_message = event["message"]["text"].strip()
-        clean_message = user_message.strip()
-
-        tasks["users"].setdefault(user_id, [])
-        tasks["checklists"].setdefault(user_id, {
-            "templates": [],
-            "active": {},
-            "history": {}
-        })
-        print(json.dumps(tasks["checklists"][user_id], indent=2, ensure_ascii=False))
-        state = tasks["states"].get(user_id)
         
 
         return "OK", 200
