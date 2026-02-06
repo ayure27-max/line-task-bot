@@ -13,8 +13,6 @@ url = "https://api.line.me/v2/bot/richmenu"
 headers = {
     "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
     "Content-Type": "image/png"
-}}",
-    "Content-Type": "application/json"
 }
 
 richmenu = {
