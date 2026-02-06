@@ -187,7 +187,7 @@ def build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks):
     }
 
     #========予定表flex表示========
-def build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks):
+def build_schedule_bubble(personal_tasks, global_tasks, user_id, tasks):
 
     contents = []
 
