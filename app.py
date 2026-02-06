@@ -7,13 +7,15 @@ app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 print("TOKEN:", LINE_CHANNEL_ACCESS_TOKEN)
+RICHMENU_ID ='richmenu-2cfad97cc5a5d06f6419a14d75e7777a'}
+IMAGE_PATH =
 TASK_FILE = "tasks.json"
 
 url = "https://api.line.me/v2/bot/richmenu"
 
 headers = {
     "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
-    "Content-Type": "application/json"
+    "Content-Type": "image/png"
 }
 
 richmenu = {
