@@ -6,6 +6,7 @@ import json
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+print("TOKEN:", LINE_CHANNEL_ACCESS_TOKEN)
 TASK_FILE = "tasks.json"
 
 url = "https://api.line.me/v2/bot/richmenu"
@@ -56,13 +57,14 @@ richmenu = {
 }
 
 r = requests.post(url, headers=headers, json=richmenu)
-print(r.status_code)
-print(r.text)
+print("status:", r.status_code)
+print("headers:", r.headers)
+print("raw text:", r.text)
 
-if r.status_code == 200:
-    richmenu_id = r.json()["richMenuId"]
-    print("RichMenu ID:", richmenu_id)
-
+try:
+    print("json:", r.json())
+except Exception as e:
+    print("json parse error:", e)
 
 
 ADMIN_USERS = ["U179b29542e4d9d16aad9ee5b8a8eea18"]
