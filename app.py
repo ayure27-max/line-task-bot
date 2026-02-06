@@ -31,7 +31,19 @@ def reply_flex(reply_token, alt_text, contents):
     r = requests.post(url, headers=headers, json=data)
     print("Flex status:", r.status_code)
     print("Flex response:", r.text)
-
+#=======postback関連========
+def parse_postback(data: str) -> dict:
+    """
+    scope=menu&action=list
+    ↓
+    {"scope": "menu", "action": "list"}
+    """
+    result = {}
+    for item in data.split("&"):
+        if "=" in item:
+            k, v = item.split("=", 1)
+            result[k] = v
+    return result
 
 # ================= データ =================
 
@@ -274,12 +286,27 @@ def webhook():
     body = request.get_json()
     events = body.get("events", [])
     tasks = load_tasks()
-    
+
     for event in events:
         user_id = event["source"]["userId"]
         reply_token = event["replyToken"]
-        
-return "OK", 200
+
+        # postback 以外は無視
+        if event["type"] != "postback":
+            continue
+
+        data = parse_postback(event["postback"]["data"])
+        scope = data.get("scope")
+        action = data.get("action")
+
+        # --- menu ---
+        if scope == "menu":
+            if action == "list":
+                handle_menu_list(reply_token, user_id, tasks)
+
+        save_tasks(tasks)
+
+    return "OK", 200
 
 
 @app.route("/")
