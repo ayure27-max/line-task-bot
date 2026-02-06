@@ -11,7 +11,10 @@ TASK_FILE = "tasks.json"
 url = "https://api.line.me/v2/bot/richmenu"
 
 headers = {
-    "Authorization": f"Bearer {CHANNEL_ACCESS_TOKEN}",
+    "Authorization": f"Bearer {headers = {
+    "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+    "Content-Type": "image/png"
+}}",
     "Content-Type": "application/json"
 }
 
@@ -58,6 +61,10 @@ richmenu = {
 r = requests.post(url, headers=headers, json=richmenu)
 print(r.status_code)
 print(r.text)
+
+if r.status_code == 200:
+    richmenu_id = r.json()["richMenuId"]
+    print("RichMenu ID:", richmenu_id)
 
 
 
