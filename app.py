@@ -39,15 +39,15 @@ def load_tasks():
     try:
         with open(TASK_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            data.setdefault({})
-            data.setdefault([])
-            data.setdefault({})
-            data.setdefault({})
-            data.setdefault("{})
-            return data
     except:
-        return 
+        data = {}
 
+    data.setdefault("users", {})
+    data.setdefault("global", [])
+    data.setdefault("maps", {})
+    data.setdefault("checklists", {})
+
+    return data
 
 def save_tasks(tasks):
     with open(TASK_FILE, "w", encoding="utf-8") as f:
@@ -279,8 +279,7 @@ def webhook():
         user_id = event["source"]["userId"]
         reply_token = event["replyToken"]
         
-
-        return "OK", 200
+return "OK", 200
 
 
 @app.route("/")
