@@ -11,7 +11,6 @@ TASK_FILE = "tasks.json"
 url = "https://api.line.me/v2/bot/richmenu"
 
 headers = {
-    "Authorization": f"Bearer {headers = {
     "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
     "Content-Type": "image/png"
 }}",
