@@ -18,36 +18,36 @@ headers = {
 
 richmenu = {
     "size": {
-        "width": 1040,
-        "height": 1040
+        "width": 2500,
+        "height": 1686
     },
     "selected": True,
     "name": "main-menu",
     "chatBarText": "メニュー",
     "areas": [
         {
-            "bounds": {"x": 0, "y": 0, "width": 520, "height": 520},
+            "bounds": {"x": 0, "y": 0, "width": 1250, "height": 843},
             "action": {
                 "type": "postback",
                 "data": "scope=menu&action=list"
             }
         },
         {
-            "bounds": {"x": 520, "y": 0, "width": 520, "height": 520},
+            "bounds": {"x": 1250, "y": 0, "width": 1250, "height": 843},
             "action": {
                 "type": "postback",
                 "data": "scope=menu&action=add"
             }
         },
         {
-            "bounds": {"x": 0, "y": 520, "width": 520, "height": 520},
+            "bounds": {"x": 0, "y": 843, "width": 1250, "height": 843},
             "action": {
                 "type": "postback",
                 "data": "scope=menu&action=check"
             }
         },
         {
-            "bounds": {"x": 520, "y": 520, "width": 520, "height": 520},
+            "bounds": {"x": 1250, "y": 843, "width": 1250, "height": 843},
             "action": {
                 "type": "postback",
                 "data": "scope=menu&action=other"
