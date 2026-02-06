@@ -176,6 +176,19 @@ def build_unified_task_bubble(personal_tasks, global_tasks, user_id, tasks):
         }
     }
 
+def handle_menu_list(reply_token, user_id, tasks):
+    personal_tasks = tasks.get("users", {}).get(user_id, [])
+    global_tasks = tasks.get("global", [])
+
+    bubble = build_unified_task_bubble(
+        personal_tasks,
+        global_tasks,
+        user_id,
+        tasks
+    )
+
+    reply_flex(reply_token, "予定一覧", bubble)
+    
     #========予定表flex表示========
 def build_schedule_bubble(personal_tasks, global_tasks, user_id, tasks):
 
