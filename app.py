@@ -8,6 +8,59 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 TASK_FILE = "tasks.json"
 
+url = "https://api.line.me/v2/bot/richmenu"
+
+headers = {
+    "Authorization": f"Bearer {CHANNEL_ACCESS_TOKEN}",
+    "Content-Type": "application/json"
+}
+
+richmenu = {
+    "size": {
+        "width": 1040,
+        "height": 1040
+    },
+    "selected": True,
+    "name": "main-menu",
+    "chatBarText": "メニュー",
+    "areas": [
+        {
+            "bounds": {"x": 0, "y": 0, "width": 520, "height": 520},
+            "action": {
+                "type": "postback",
+                "data": "scope=menu&action=list"
+            }
+        },
+        {
+            "bounds": {"x": 520, "y": 0, "width": 520, "height": 520},
+            "action": {
+                "type": "postback",
+                "data": "scope=menu&action=add"
+            }
+        },
+        {
+            "bounds": {"x": 0, "y": 520, "width": 520, "height": 520},
+            "action": {
+                "type": "postback",
+                "data": "scope=menu&action=check"
+            }
+        },
+        {
+            "bounds": {"x": 520, "y": 520, "width": 520, "height": 520},
+            "action": {
+                "type": "postback",
+                "data": "scope=menu&action=other"
+            }
+        }
+    ]
+}
+
+r = requests.post(url, headers=headers, json=richmenu)
+print(r.status_code)
+print(r.text)
+
+
+
 ADMIN_USERS = ["U179b29542e4d9d16aad9ee5b8a8eea18"]
 
 
