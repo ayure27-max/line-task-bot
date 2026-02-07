@@ -1,5 +1,7 @@
-import requests
+from flask import Flask, request
 import os
+import requests
+import json
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 RICHMENU_ID = "richmenu-2cfad97cc5a5d06f6419a14d75e7777a"
@@ -20,8 +22,8 @@ print("response:", r.text)
 
 richmenu = {
     "size": {
-        "width": 1040,
-        "height": 1040
+        "width": 2500,
+        "height": 1686
     },
     "selected": True,
     "name": "main-menu",
@@ -67,7 +69,6 @@ try:
     print("json:", r.json())
 except Exception as e:
     print("json parse error:", e)
-
 
 ADMIN_USERS = ["U179b29542e4d9d16aad9ee5b8a8eea18"]
 
