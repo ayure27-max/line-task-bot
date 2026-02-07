@@ -55,6 +55,7 @@ r = requests.post(url, headers=headers, json=richmenu)
 
 print("status:", r.status_code)
 print("response:", r.text)
+print("TOKEN:", LINE_CHANNEL_ACCESS_TOKEN)
 
 if r.status_code == 200:
     richmenu_id = r.json()["richMenuId"]
