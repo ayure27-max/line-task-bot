@@ -11,12 +11,7 @@ url = f"https://api.line.me/v2/bot/richmenu/{RICHMENU_ID}/content"
 
 headers = {
     "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
-    "Content-Type": "image/png"
-}
-
-with open(IMAGE_PATH, "rb") as f:
-    r = requests.post(url, headers=headers, data=f)
-
+    "Content-Type": "application/json
 print("status:", r.status_code)
 print("response:", r.text)
 
