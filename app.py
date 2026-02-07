@@ -2,6 +2,8 @@ from flask import Flask, request
 import os
 import requests
 import json
+
+app = Flask(__name__)
 """
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 RICHMENU_ID = "richmenu-2cfad97cc5a5d06f6419a14d75e7777a"
