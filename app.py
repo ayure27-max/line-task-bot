@@ -386,8 +386,32 @@ def webhook():
 @app.route("/")
 def home():
     return "Bot is running!"
+    
+    # 🔑 Webhook検証対策（超重要）
+    if body is None:
+        return "OK", 200
 
+    events = body.get("events", [])
+    tasks = load_tasks()
 
+    for event in events:
+        # 念のためガード
+        if "replyToken" not in event:
+            continue
+
+        user_id = event["source"]["userId"]
+        reply_token = event["replyToken"]
+
+        if event["type"] != "postback":
+            continue
+
+        data = parse_postback(event["postback"]["data"])
+        scope = data.get("scope")
+        action = data.get("action")
+
+        if scope == "menu" and action == "list":
+            handle_menu_list(reply_token, user_id, tasks
+        
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
