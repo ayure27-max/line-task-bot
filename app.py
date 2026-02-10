@@ -5,6 +5,7 @@ import os
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+print("TOKEN EXISTS:", bool(LINE_CHANNEL_ACCESS_TOKEN))
 
 user_states = {}
     
@@ -23,7 +24,9 @@ def send_reply(reply_token, text):
             }
         ]
     }
-    requests.post(url, headers=headers, json=data)
+    res = requests.post(url, headers=headers, json=data)
+print("LINE reply status:", res.status_code)
+print(res.text)
 
 def send_flex(reply_token, flex):
     url = "https://api.line.me/v2/bot/message/reply"
