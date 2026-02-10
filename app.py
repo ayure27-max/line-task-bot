@@ -25,6 +25,18 @@ def send_reply(reply_token, text):
     }
     requests.post(url, headers=headers, json=data)
 
+def send_flex(reply_token, flex):
+    url = "https://api.line.me/v2/bot/message/reply"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
+    }
+    data = {
+        "replyToken": reply_token,
+        "messages": [flex]
+    }
+    requests.post(url, headers=headers, json=data)
+
 def build_schedule_flex(personal_tasks, global_tasks):
     body = []
 
