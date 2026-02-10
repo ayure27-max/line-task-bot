@@ -123,6 +123,49 @@ def send_schedule(reply_token, personal_tasks, global_tasks):
     }
 
     requests.post(url, headers=headers, json=data)
+    
+def handle_menu_add(reply_token, user_id):
+    user_states[user_id] = "add_select"
+
+    flex = {
+        "type": "flex",
+        "altText": "追加メニュー",
+        "contents": {
+            "type": "bubble",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "button",
+                        "action": {
+                            "type": "postback",
+                            "label": "個人予定",
+                            "data": "#add_personal"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "action": {
+                            "type": "postback",
+                            "label": "全体予定",
+                            "data": "#add_global"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "action": {
+                            "type": "postback",
+                            "label": "チェックリスト",
+                            "data": "#add_check"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    send_flex(reply_token, flex)
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -130,9 +173,28 @@ def webhook():
 
     for event in body.get("events", []):
         reply_token = event.get("replyToken")
+        user_id = event["source"]["userId"]
 
         if event["type"] == "postback":
             data = event["postback"]["data"]
+            
+            if data == "#menu_list":
+                handle_menu_list(reply_token, user_id)
+
+            elif data == "#menu_add":
+                handle_menu_add(reply_token, user_id)
+
+            elif data == "#menu_check":
+                handle_menu_check(reply_token, user_id)
+
+            elif data == "#menu_other":
+                handle_menu_other(reply_token, user_id)
+
+            elif data.startswith("#list_done_"):
+                handle_done(reply_token, user_id, data)
+
+        elif event["type"] == "message":
+            handle_message(reply_token, user_id, event["message"]["text"])
             
              # ===== 予定表表示 =====
             if data == "#menu_list":
@@ -157,15 +219,6 @@ def webhook():
                     tasks["global"][idx].setdefault("done_by", []).append(user_id)
                     
                 save_tasks(tasks)
-            
-            elif data == "#menu_add":
-                send_reply(reply_token, "➕ 追加")
-            elif data == "#menu_check":
-                send_reply(reply_token, "✅ チェック")
-            elif data == "#menu_other":
-                send_reply(reply_token, "⚙️ その他")
-            else:
-                send_reply(reply_token, "未定義メニュー")
 
     return "OK", 200
 
