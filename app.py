@@ -200,39 +200,8 @@ def handle_message(reply_token, user_id, text):
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    print("=== WEBHOOK HIT ===")
-    body = request.get_json()
-    print(body)
-
-    for event in body.get("events", []):
-        reply_token = event.get("replyToken")
-        user_id = event["source"]["userId"]
-
-        # ===== postback =====
-        if event["type"] == "postback":
-            data = event["postback"]["data"]
-
-            if data == "scope=menu&action=add":
-                handle_menu_add(reply_token, user_id)
-
-            elif data == "scope=menu&action=list":
-                send_reply(reply_token, "📋 予定表を押したね")
-
-            elif data == "scope=menu&action=check":
-                send_reply(reply_token, "✅ チェック")
-
-            elif data == "scope=menu&action=other":
-                send_reply(reply_token, "⚙️ その他")
-
-            elif data == "#add_personal":
-                user_states[user_id] = "add_personal"
-                send_reply(reply_token, "追加する予定を送って")
-
-        # ===== message =====
-        elif event["type"] == "message":
-            text = event["message"]["text"]
-            handle_message(reply_token, user_id, text)
-
+    print("HIT")
+    print(request.get_data(as_text=True))
     return "OK", 200
 
 @app.route("/")
