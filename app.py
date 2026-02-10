@@ -23,6 +23,107 @@ def send_reply(reply_token, text):
     }
     requests.post(url, headers=headers, json=data)
 
+def build_schedule_flex(personal_tasks, global_tasks):
+    body = []
+
+    body.append({
+        "type": "text",
+        "text": "📅 予定表",
+        "weight": "bold",
+        "size": "lg"
+    })
+
+    # 👤 個人予定
+    body.append({
+        "type": "text",
+        "text": "👤 個人の予定",
+        "weight": "bold",
+        "margin": "lg"
+    })
+
+    if personal_tasks:
+        for i, task in enumerate(personal_tasks):
+            body.append(task_row(task["text"], f"#list_done_p_{i}"))
+    else:
+        body.append(empty_row())
+
+    # 🌍 全体予定
+    body.append({
+        "type": "text",
+        "text": "🌍 全体の予定",
+        "weight": "bold",
+        "margin": "lg"
+    })
+
+    if global_tasks:
+        for i, task in enumerate(global_tasks):
+            body.append(task_row(task["text"], f"#list_done_g_{i}"))
+    else:
+        body.append(empty_row())
+
+    return {
+        "type": "bubble",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "sm",
+            "contents": body
+        }
+    }
+
+def task_row(text, postback_data):
+    return {
+        "type": "box",
+        "layout": "horizontal",
+        "spacing": "sm",
+        "contents": [
+            {
+                "type": "text",
+                "text": text,
+                "wrap": True,
+                "flex": 5
+            },
+            {
+                "type": "button",
+                "style": "secondary",
+                "height": "sm",
+                "action": {
+                    "type": "postback",
+                    "label": "完了",
+                    "data": postback_data
+                }
+            }
+        ]
+    }
+    
+def empty_row():
+    return {
+        "type": "text",
+        "text": "（なし）",
+        "size": "sm",
+        "color": "#999999"
+    }
+    
+def send_schedule(reply_token, personal_tasks, global_tasks):
+    url = "https://api.line.me/v2/bot/message/reply"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
+    }
+
+    data = {
+        "replyToken": reply_token,
+        "messages": [
+            {
+                "type": "flex",
+                "altText": "予定表",
+                "contents": build_schedule_flex(personal_tasks, global_tasks)
+            }
+        ]
+    }
+
+    requests.post(url, headers=headers, json=data)
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     body = request.get_json()
@@ -33,10 +134,33 @@ def webhook():
         if event["type"] == "postback":
             data = event["postback"]["data"]
 
+             # ===== 予定表表示 =====
             if data == "#menu_list":
-                send_reply(reply_token, "📅 予定表")
+            tasks = load_tasks()
+            user_id = event["source"]["userId"]
+
+            personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+            global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+
+            send_schedule(reply_token, personal, global_tasks
+            
+            # ===== 完了 =====
+            elif data.startswith("#list_done_"):
+            tasks = load_tasks()
+            user_id = event["source"]["userId"]
+
+            _, _, scope, idx = data.split("_")
+            idx = int(idx)
+
+            if scope == "p":
+                tasks["users"][user_id][idx]["status"] = "done"
+            elif scope == "g":
+                tasks["global"][idx].setdefault("done_by", []).append(user_id)
+
+            save_tasks(tasks
+            
             elif data == "#menu_add":
-                send_reply(reply_token, "➕ 追加")
+                 send_reply(reply_token, "➕ 追加")
             elif data == "#menu_check":
                 send_reply(reply_token, "✅ チェック")
             elif data == "#menu_other":
