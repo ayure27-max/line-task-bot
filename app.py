@@ -191,8 +191,6 @@ def webhook():
     print("=== WEBHOOK HIT ===")
     body = request.get_json()
     print(body)
-def webhook():
-    body = request.get_json()
 
     for event in body.get("events", []):
         reply_token = event.get("replyToken")
@@ -217,6 +215,11 @@ def webhook():
             elif data == "#add_personal":
                 user_states[user_id] = "add_personal"
                 send_reply(reply_token, "追加する予定を送って")
+
+        # ===== message =====
+        elif event["type"] == "message":
+            text = event["message"]["text"]
+            handle_message(reply_token, user_id, text)
 
     return "OK", 200
 
