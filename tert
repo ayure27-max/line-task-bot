@@ -1,0 +1,12 @@
+import requests, os
+
+TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+USER_ID = "Uxxxxxxxxxxxx"
+
+url = f"https://api.line.me/v2/bot/user/{USER_ID}/richmenu"
+headers = {
+    "Authorization": f"Bearer {TOKEN}"
+}
+
+r = requests.get(url, headers=headers)
+print(r.status_code, r.text)
