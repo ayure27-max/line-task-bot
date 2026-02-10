@@ -201,12 +201,12 @@ def handle_message(reply_token, user_id, text):
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if event["type"] == "postback":
-    data = event["postback"]["data"]
+        data = event["postback"]["data"]
 
-    if data == "scope=menu&action=list":
-        send_reply(reply_token, "📋 予定表を押したね")
-        print("POSTBACK DATA:", data)
-        print("REPLY TOKEN:", reply_token)
+        if data == "scope=menu&action=list":
+            send_reply(reply_token, "📋 予定表を押したね")
+            print("POSTBACK DATA:", data)
+            print("REPLY TOKEN:", reply_token)
     print("HIT")
     print(request.get_data(as_text=True))
     return "OK", 200
