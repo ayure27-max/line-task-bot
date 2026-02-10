@@ -197,6 +197,21 @@ def webhook():
         if event["type"] == "postback":
             data = event["postback"]["data"]
             
+            if data == "scope=menu&action=add":
+                send_reply(reply_token, "➕ 追加を押したね")
+
+            elif data == "scope=menu&action=list":
+                send_reply(reply_token, "📋 予定表を押したね")
+
+            elif data == "scope=menu&action=check":
+                send_reply(reply_token, "✅ チェック")
+
+            elif data == "scope=menu&action=other":
+                send_reply(reply_token, "⚙️ その他")
+
+        elif event["type"] == "message":
+            send_reply(reply_token, "メニューから操作してね")
+            
             if data == "#menu_list":
                 handle_menu_list(reply_token, user_id)
 
