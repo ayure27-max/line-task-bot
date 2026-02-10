@@ -6,6 +6,29 @@ app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
+user_states = {}
+
+def handle_message(reply_token, user_id, text):
+    state = user_states.get(user_id)
+
+    if state == "add_personal":
+        tasks = load_tasks()
+        tasks["users"].setdefault(user_id, []).append({
+            "text": text,
+            "status": "todo"
+        })
+        save_tasks(tasks)
+
+        user_states.pop(user_id)
+        send_reply(reply_token, "📅 個人予定を追加したよ")
+
+    else:
+        send_reply(reply_token, "メニューから操作してね")
+
+　elif data == "#add_personal":
+    user_states[user_id] = "add_personal"
+    send_reply(reply_token, "追加する予定を送ってね")
+    
 def send_reply(reply_token, text):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
