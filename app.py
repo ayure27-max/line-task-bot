@@ -194,11 +194,12 @@ def webhook():
         reply_token = event.get("replyToken")
         user_id = event["source"]["userId"]
 
+        # ===== postback =====
         if event["type"] == "postback":
             data = event["postback"]["data"]
-            
+
             if data == "scope=menu&action=add":
-                send_reply(reply_token, "➕ 追加を押したね")
+                handle_menu_add(reply_token, user_id)
 
             elif data == "scope=menu&action=list":
                 send_reply(reply_token, "📋 予定表を押したね")
@@ -209,54 +210,13 @@ def webhook():
             elif data == "scope=menu&action=other":
                 send_reply(reply_token, "⚙️ その他")
 
-        elif event["type"] == "message":
-            send_reply(reply_token, "メニューから操作してね")
-            
-            if data == "#menu_list":
-                handle_menu_list(reply_token, user_id)
+            elif data == "#add_personal":
+                user_states[user_id] = "add_personal"
+                send_reply(reply_token, "追加する予定を送ってね")
 
-            elif data == "#menu_add":
-                handle_menu_add(reply_token, user_id)
-
-            elif data == "#menu_check":
-                handle_menu_check(reply_token, user_id)
-
-            elif data == "#menu_other":
-                handle_menu_other(reply_token, user_id)
-
-            elif data.startswith("#list_done_"):
-                handle_done(reply_token, user_id, data)
-
+        # ===== message =====
         elif event["type"] == "message":
             handle_message(reply_token, user_id, event["message"]["text"])
-            
-             # ===== 予定表表示 =====
-            if data == "#menu_list":
-                tasks = load_tasks()
-                user_id = event["source"]["userId"]
-                
-                personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-                global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-                
-                send_schedule(reply_token, personal, global_tasks)
-            # ===== 完了 =====
-            elif data.startswith("#list_done_"):
-                tasks = load_tasks()
-                user_id = event["source"]["userId"]
-                
-                _, _, scope, idx = data.split("_")
-                idx = int(idx)
-                
-                if scope == "p":
-                    tasks["users"][user_id][idx]["status"] = "done"
-                elif scope == "g":
-                    tasks["global"][idx].setdefault("done_by", []).append(user_id)
-                    
-                save_tasks(tasks)
-                
-        elif data == "#add_personal":
-            user_states[user_id] = "add_personal"
-            send_reply(reply_token, "追加する予定を送ってね")
 
     return "OK", 200
 
