@@ -5,18 +5,6 @@ import os
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-RICHMENU_ID = "richmenu-ece55e5bf2da5f4883b35325a8c99246"
-
-url = "https://api.line.me/v2/bot/user/all/richmenu/" + RICHMENU_ID
-
-headers = {
-    "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
-}
-
-r = requests.post(url, headers=headers)
-
-print(r.status_code)
-print(r.text)
 
 def send_reply(reply_token, text):
     url = "https://api.line.me/v2/bot/message/reply"
