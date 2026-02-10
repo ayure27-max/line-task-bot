@@ -133,7 +133,7 @@ def webhook():
 
         if event["type"] == "postback":
             data = event["postback"]["data"]
-
+            
              # ===== 予定表表示 =====
             if data == "#menu_list":
                 tasks = load_tasks()
@@ -141,8 +141,8 @@ def webhook():
                 
                 personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
                 global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-                send_schedule(reply_token, personal, global_tasks
-            
+                
+                send_schedule(reply_token, personal, global_tasks)
             # ===== 完了 =====
             elif data.startswith("#list_done_"):
                 tasks = load_tasks()
@@ -156,19 +156,16 @@ def webhook():
                 elif scope == "g":
                     tasks["global"][idx].setdefault("done_by", []).append(user_id)
                     
-                save_tasks(tasks
+                save_tasks(tasks)
             
             elif data == "#menu_add":
-                 send_reply(reply_token, "➕ 追加")
+                send_reply(reply_token, "➕ 追加")
             elif data == "#menu_check":
                 send_reply(reply_token, "✅ チェック")
             elif data == "#menu_other":
                 send_reply(reply_token, "⚙️ その他")
             else:
                 send_reply(reply_token, "未定義メニュー")
-
-        elif event["type"] == "message":
-            send_reply(reply_token, "メニューから操作してね")
 
     return "OK", 200
 
