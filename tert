@@ -1,7 +1,7 @@
 import requests, os
 
 TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-USER_ID = "Uxxxxxxxxxxxx"
+USER_ID = "U179b29542e4d9d16aad9ee5b8a8eea18"
 
 url = f"https://api.line.me/v2/bot/user/{USER_ID}/richmenu"
 headers = {
