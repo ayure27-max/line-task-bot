@@ -25,8 +25,8 @@ def send_reply(reply_token, text):
         ]
     }
     res = requests.post(url, headers=headers, json=data)
-print("LINE reply status:", res.status_code)
-print(res.text)
+    print("LINE reply status:", res.status_code)
+    print("LINE reply body:", res.text)
 
 def send_flex(reply_token, flex):
     url = "https://api.line.me/v2/bot/message/reply"
