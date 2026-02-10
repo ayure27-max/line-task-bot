@@ -188,6 +188,10 @@ def handle_message(reply_token, user_id, text):
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    print("=== WEBHOOK HIT ===")
+    body = request.get_json()
+    print(body)
+def webhook():
     body = request.get_json()
 
     for event in body.get("events", []):
