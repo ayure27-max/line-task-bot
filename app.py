@@ -216,11 +216,7 @@ def webhook():
 
             elif data == "#add_personal":
                 user_states[user_id] = "add_personal"
-                send_reply(reply_token, "追加する予定を送ってね")
-
-        # ===== message =====
-        elif event["type"] == "message":
-            handle_message(reply_token, user_id, event["message"]["text"])
+                send_reply(reply_token, "追加する予定を送って
 
     return "OK", 200
 
