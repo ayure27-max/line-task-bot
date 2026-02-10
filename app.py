@@ -7,12 +7,6 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 RICHMENU_ID = "richmenu-ece55e5bf2da5f4883b35325a8c99246"
 
-import requests
-import os
-
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-RICHMENU_ID = "richmenu-xxxxxxxxxxxxxxxx"
-
 url = "https://api.line.me/v2/bot/user/all/richmenu/" + RICHMENU_ID
 
 headers = {
