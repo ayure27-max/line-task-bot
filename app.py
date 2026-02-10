@@ -216,7 +216,7 @@ def webhook():
 
             elif data == "#add_personal":
                 user_states[user_id] = "add_personal"
-                send_reply(reply_token, "追加する予定を送って
+                send_reply(reply_token, "追加する予定を送って)
 
     return "OK", 200
 
