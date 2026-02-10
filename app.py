@@ -28,21 +28,24 @@ def webhook():
     body = request.get_json()
 
     for event in body.get("events", []):
-        if event["type"] != "message":
-            continue
-        if event["message"]["type"] != "text":
-            continue
+        reply_token = event.get("replyToken")
 
-        text = event["message"]["text"]
-        reply_token = event["replyToken"]
+        if event["type"] == "postback":
+            data = event["postback"]["data"]
 
-        # リッチメニューの message をそのまま拾う
-        if text == "一覧":
-            send_reply(reply_token, "📋 一覧を押したね")
-        elif text == "追加":
-            send_reply(reply_token, "➕ 追加を押したね")
-        else:
-            send_reply(reply_token, "リッチメニューを使ってね")
+            if data == "#menu_list":
+                send_reply(reply_token, "📅 予定表")
+            elif data == "#menu_add":
+                send_reply(reply_token, "➕ 追加")
+            elif data == "#menu_check":
+                send_reply(reply_token, "✅ チェック")
+            elif data == "#menu_other":
+                send_reply(reply_token, "⚙️ その他")
+            else:
+                send_reply(reply_token, "未定義メニュー")
+
+        elif event["type"] == "message":
+            send_reply(reply_token, "メニューから操作してね")
 
     return "OK", 200
 
