@@ -136,28 +136,27 @@ def webhook():
 
              # ===== 予定表表示 =====
             if data == "#menu_list":
-            tasks = load_tasks()
-            user_id = event["source"]["userId"]
-
-            personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-            global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-
-            send_schedule(reply_token, personal, global_tasks
+                tasks = load_tasks()
+                user_id = event["source"]["userId"]
+                
+                personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+                global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+                send_schedule(reply_token, personal, global_tasks
             
             # ===== 完了 =====
             elif data.startswith("#list_done_"):
-            tasks = load_tasks()
-            user_id = event["source"]["userId"]
-
-            _, _, scope, idx = data.split("_")
-            idx = int(idx)
-
-            if scope == "p":
-                tasks["users"][user_id][idx]["status"] = "done"
-            elif scope == "g":
-                tasks["global"][idx].setdefault("done_by", []).append(user_id)
-
-            save_tasks(tasks
+                tasks = load_tasks()
+                user_id = event["source"]["userId"]
+                
+                _, _, scope, idx = data.split("_")
+                idx = int(idx)
+                
+                if scope == "p":
+                    tasks["users"][user_id][idx]["status"] = "done"
+                elif scope == "g":
+                    tasks["global"][idx].setdefault("done_by", []).append(user_id)
+                    
+                save_tasks(tasks
             
             elif data == "#menu_add":
                  send_reply(reply_token, "➕ 追加")
