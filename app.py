@@ -4,8 +4,8 @@ import requests
 import json
 
 app = Flask(__name__)
-"""
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+"""
 RICHMENU_ID = "richmenu-2cfad97cc5a5d06f6419a14d75e7777a"
 IMAGE_PATH = "richmenu.png"
 
@@ -387,7 +387,11 @@ def webhook():
 def home():
     return "Bot is running!"
     
-    # 🔑 Webhook検証対策（超重要）
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    body = request.get_json(silent=True)
+
+    # 🔑 Webhook検証対策（最重要）
     if body is None:
         return "OK", 200
 
@@ -399,18 +403,21 @@ def home():
         if "replyToken" not in event:
             continue
 
+        if event.get("type") != "postback":
+            continue
+
         user_id = event["source"]["userId"]
         reply_token = event["replyToken"]
-
-        if event["type"] != "postback":
-            continue
 
         data = parse_postback(event["postback"]["data"])
         scope = data.get("scope")
         action = data.get("action")
 
         if scope == "menu" and action == "list":
-            handle_menu_list(reply_token, user_id, tasks
+            handle_menu_list(reply_token, user_id, tasks)
+
+    save_tasks(tasks)
+    return "OK", 200
         
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
