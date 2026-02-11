@@ -68,7 +68,7 @@ def send_flex(reply_token, flex):
     }
     requests.post(url, headers=headers, json=data)
 
-def build_schedule_flex(personal_tasks, global_tasks):
+def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
     body = []
 
     body.append({
@@ -88,9 +88,10 @@ def build_schedule_flex(personal_tasks, global_tasks):
 
     if personal_tasks:
         for i, task in enumerate(personal_tasks):
-            body.append(task_row(task["text"], f"#list_done_p_{i}"))
-    else:
-        body.append(empty_row())
+            if show_done:
+                body.append(task_row(task["text"], f"#list_undo_p_{i}", label="復帰"))
+            else:
+                body.append(task_row(task["text"], f"#list_done_p_{i}", label="完了"))
 
     # 🌍 全体予定
     body.append({
@@ -105,6 +106,17 @@ def build_schedule_flex(personal_tasks, global_tasks):
             body.append(task_row(task["text"], f"#list_done_g_{i}"))
     else:
         body.append(empty_row())
+        
+    body.append({
+        "type": "button",
+        "style": "primary",
+        "margin": "lg",
+        "action": {
+            "type": "postback",
+            "label": "完了済みを見る",
+            "data": "#show_done"
+        }
+    })
 
     return {
         "type": "bubble",
@@ -116,7 +128,7 @@ def build_schedule_flex(personal_tasks, global_tasks):
         }
     }
 
-def task_row(text, postback_data):
+def task_row(text, postback_data, label="完了"):
     return {
         "type": "box",
         "layout": "horizontal",
@@ -134,7 +146,7 @@ def task_row(text, postback_data):
                 "height": "sm",
                 "action": {
                     "type": "postback",
-                    "label": "完了",
+                    "label": label,
                     "data": postback_data
                 }
             }
@@ -149,7 +161,7 @@ def empty_row():
         "color": "#999999"
     }
     
-def send_schedule(reply_token, personal_tasks, global_tasks):
+def send_schedule(reply_token, personal_tasks, global_tasks, show_done=False):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
         "Content-Type": "application/json",
@@ -162,7 +174,7 @@ def send_schedule(reply_token, personal_tasks, global_tasks):
             {
                 "type": "flex",
                 "altText": "予定表",
-                "contents": build_schedule_flex(personal_tasks, global_tasks)
+                "contents": build_schedule_flex(personal_tasks, global_tasks, show_done)
             }
         ]
     }
@@ -286,6 +298,23 @@ def handle_done(reply_token, user_id, data, group_id=None):
                     
         send_schedule(reply_token, personal, group_tasks)
 
+def handle_undo(reply_token, user_id, data, group_id=None):
+    tasks = load_tasks()
+
+    _, _, scope, idx = data.split("_")
+    idx = int(idx)
+
+    if scope == "p":
+        tasks["users"][user_id][idx]["status"] = "todo"
+
+    elif scope == "g" and group_id:
+        if user_id in tasks["groups"][group_id][idx].get("done_by", []):
+            tasks["groups"][group_id][idx]["done_by"].remove(user_id)
+
+    save_tasks(tasks)
+
+    send_reply(reply_token, "復帰したよ")
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     body = request.get_json()
@@ -341,6 +370,9 @@ def webhook():
             # 完了処理
             elif data.startswith("#list_done_"):
                 handle_done(reply_token, user_id, data, group_id)
+            
+            elif data.startswith("#list_undo_"):
+                handle_undo(reply_token, user_id, data, group_id)
 
             # 追加
             elif data == "scope=menu&action=add":
@@ -353,6 +385,17 @@ def webhook():
             elif data == "#add_global" and source_type == "group":
                 user_states[user_id] = f"add_global_{group_id}"
                 send_reply(reply_token, "🌍 全体予定を書いてね")
+                
+            elif data == "#show_done":
+                tasks = load_tasks()
+                
+                personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") == "done"]
+                
+                group_tasks = []
+                if source_type == "group":
+                    group_tasks = [t for t in tasks["groups"][group_id] if user_id in t.get("done_by", [])]
+                    
+                send_schedule(reply_token, personal, group_tasks, show_done=True)
 
             # その他
             else:
