@@ -290,7 +290,7 @@ def handle_menu_add(reply_token, user_id):
 def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     state = user_states.get(user_id)
 
-    # 個人予定追加モード
+    # ===== 個人予定追加 =====
     if state == "add_personal":
         tasks = load_tasks()
 
@@ -300,46 +300,46 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         })
 
         save_tasks(tasks)
-
         user_states.pop(user_id)
 
-        # 保存後、予定表を自動表示
-        personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+        personal = [
+            t for t in tasks["users"].get(user_id, [])
+            if t.get("status") != "done"
+        ]
+
         group_tasks = []
-        
-        if source_type == "group":
+        if source_type == "group" and group_id:
             tasks.setdefault("groups", {})
             tasks["groups"].setdefault(group_id, [])
             group_tasks = [
-                t for t in tasks.setdefault("groups", {})tasks["groups"].setdefault(group_id, [])
-                if user_id not in t.get("done_by", [])]
+                t for t in tasks["groups"][group_id]
+                if user_id not in t.get("done_by", [])
+            ]
 
         send_schedule(reply_token, personal, group_tasks)
-    
-    if state and state.startswith("add_global_"):
-        
+
+    # ===== 全体予定追加 =====
+    elif state and state.startswith("add_global_"):
         group_id = state.replace("add_global_", "")
         tasks = load_tasks()
-            
+
         tasks.setdefault("groups", {})
         tasks["groups"].setdefault(group_id, [])
-        
-        tasks.setdefault("groups", {})
-        tasks["groups"].setdefault(group_id, [])
-        
+
         tasks["groups"][group_id].append({
             "text": text,
             "done_by": []
         })
-        
+
         save_tasks(tasks)
         user_states.pop(user_id)
-        
+
         send_reply(reply_token, "🌍 全体予定を追加したよ")
 
+    # ===== それ以外 =====
     else:
         send_reply(reply_token, "メニューから操作してね")
-
+        
 def handle_done(reply_token, user_id, data, source_type, group_id=None):
     tasks = load_tasks()
 
