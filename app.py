@@ -439,7 +439,7 @@ def webhook():
                 print("POSTBACK:", data)
 
             # 予定表
-            if data == "scope=menu&action=list":
+            elif data == "scope=menu&action=list":
                 tasks = load_tasks()
 
                 personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
