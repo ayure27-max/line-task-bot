@@ -13,10 +13,17 @@ DATA_FILE = "tasks.json"
 
 def load_tasks():
     if not os.path.exists(DATA_FILE):
-        return {"users": {}, "groups": {}}
+        return {"users": {}, "groups": {}, "checklists": {}}
 
     with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+
+    # 安全補完
+    data.setdefault("users", {})
+    data.setdefault("groups", {})
+    data.setdefault("checklists", {})
+
+    return data
 
 def save_tasks(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -324,6 +331,43 @@ def handle_menu_add(reply_token, user_id):
     
 def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     state = user_states.get(user_id)
+    
+    # チェックリストタイトル入力
+    if state == "add_check_title":
+        tasks = load_tasks()
+        
+        tasks.setdefault("checklists", {})
+        tasks["checklists"].setdefault(user_id, [])
+        
+        tasks["checklists"][user_id].append({
+            "title": text,
+            "items": []
+        })
+        
+        save_tasks(tasks)
+        
+        user_states[user_id] = "add_check_items"
+        send_reply(reply_token, "項目を1つずつ送ってね。終わったら「完了」と送ってください。")
+        return
+    
+    # チェックリスト項目追加
+    if state == "add_check_items":
+        tasks = load_tasks()
+        
+        if text == "完了":
+            user_states.pop(user_id)
+            save_tasks(tasks)
+            send_reply(reply_token, "✅ チェックリスト作成完了")
+            return
+            
+        tasks["checklists"][user_id][-1]["items"].append({
+            "text": text,
+            "done": False
+        })
+        
+        save_tasks(tasks)
+        send_reply(reply_token, "追加しました。続けて入力してください。")
+        return
 
     # ===== 個人予定追加 =====
     if state == "add_personal":
@@ -563,6 +607,10 @@ def webhook():
                 
             elif data == "#show_done":
                 handle_show_done(reply_token, user_id, source_type, group_id)
+                
+            elif data == "#add_check":
+                user_states[user_id] = "add_check_title"
+                send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
 
             # その他
             else:
