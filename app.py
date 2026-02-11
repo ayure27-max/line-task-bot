@@ -457,10 +457,10 @@ def webhook():
 
             # 完了処理
             elif data.startswith("#list_done_"):
-                handle_done(reply_token, user_id, data, group_id)
+                handle_done(reply_token, user_id, data, source_type, group_id)
             
             elif data.startswith("#list_undo_"):
-                handle_undo(reply_token, user_id, data, group_id)
+                handle_undohan(reply_token, user_id, data, source_type, group_id)
 
             # 追加
             elif data == "scope=menu&action=add":
@@ -473,17 +473,6 @@ def webhook():
             elif data == "#add_global" and source_type == "group":
                 user_states[user_id] = f"add_global_{group_id}"
                 send_reply(reply_token, "🌍 全体予定を書いてね")
-                
-            elif data == "#show_done":
-                tasks = load_tasks()
-                
-                personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") == "done"]
-                
-                group_tasks = []
-                if source_type == "group":
-                    group_tasks = [t for t in tasks["groups"][group_id] if user_id in t.get("done_by", [])]
-                    
-                send_schedule(reply_token, personal, group_tasks, show_done=True)
                 
             elif data == "#show_done":
                 handle_show_done(reply_token, user_id, source_type, group_id)
