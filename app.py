@@ -332,6 +332,7 @@ def handle_menu_add(reply_token, user_id):
                         }
                     }
                 ]
+            }
     
 
     send_flex(reply_token, flex)
