@@ -183,6 +183,67 @@ def send_schedule(reply_token, personal_tasks, global_tasks, show_done=False):
 
     requests.post(url, headers=headers, json=data)
     
+def send_done_schedule(reply_token, personal_done, group_done):
+    body = []
+
+    body.append({
+        "type": "text",
+        "text": "✅ 完了済み予定",
+        "weight": "bold",
+        "size": "lg"
+    })
+
+    if personal_done:
+        body.append({
+            "type": "text",
+            "text": "【個人】",
+            "margin": "md",
+            "weight": "bold"
+        })
+
+        for t in personal_done:
+            body.append({
+                "type": "text",
+                "text": "✔ " + t["text"],
+                "wrap": True
+            })
+
+    if group_done:
+        body.append({
+            "type": "text",
+            "text": "【グループ】",
+            "margin": "md",
+            "weight": "bold"
+        })
+
+        for t in group_done:
+            body.append({
+                "type": "text",
+                "text": "✔ " + t["text"],
+                "wrap": True
+            })
+
+    if not personal_done and not group_done:
+        body.append({
+            "type": "text",
+            "text": "完了済み予定はありません"
+        })
+
+    flex = {
+        "type": "flex",
+        "altText": "完了済み予定",
+        "contents": {
+            "type": "bubble",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": body
+            }
+        }
+    }
+
+    send_flex(reply_token, flex)
+    
 def handle_menu_add(reply_token, user_id):
     user_states[user_id] = "add_select"
 
@@ -302,6 +363,28 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
             ]
     
     send_schedule(reply_token, personal, group_tasks)
+    
+def handle_show_done(reply_token, user_id, source_type, group_id=None):
+    tasks = load_tasks()
+
+    # 完了済み個人予定
+    personal_done = [
+        t for t in tasks["users"].get(user_id, [])
+        if t.get("status") == "done"
+    ]
+
+    # 完了済みグループ予定
+    group_done = []
+    if source_type == "group" and group_id:
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
+
+        group_done = [
+            t for t in tasks["groups"][group_id]
+            if user_id in t.get("done_by", [])
+        ]
+
+    send_done_schedule(reply_token, personal_done, group_done)
 
 def handle_undo(reply_token, user_id, data, group_id=None):
     tasks = load_tasks()
@@ -401,6 +484,9 @@ def webhook():
                     group_tasks = [t for t in tasks["groups"][group_id] if user_id in t.get("done_by", [])]
                     
                 send_schedule(reply_token, personal, group_tasks, show_done=True)
+                
+            elif data == "#show_done":
+                handle_show_done(reply_token, user_id, source_type, group_id)
 
             # その他
             else:
