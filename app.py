@@ -318,7 +318,7 @@ def handle_menu_add(reply_token, user_id):
                         "type": "button",
                         "action": {
                             "type": "postback",
-                            "label": "チェックリスト",
+                            "label": "チェックリスト作成",
                             "data": "#add_check"
                         }
                     },
@@ -333,7 +333,8 @@ def handle_menu_add(reply_token, user_id):
                     }
                 ]
             }
-    
+        }
+    }
 
     send_flex(reply_token, flex)
     
