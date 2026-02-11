@@ -310,7 +310,9 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         if source_type == "group":
             tasks.setdefault("groups", {})
             tasks["groups"].setdefault(group_id, [])
-            group_tasks = [t for t in tasks["groups"][group_id]if user_id not in t.get("done_by", [])]
+            group_tasks = [
+                t for t in tasks.setdefault("groups", {})tasks["groups"].setdefault(group_id, [])
+                if user_id not in t.get("done_by", [])]
 
         send_schedule(reply_token, personal, group_tasks)
     
@@ -319,6 +321,9 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         group_id = state.replace("add_global_", "")
         tasks = load_tasks()
             
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
+        
         tasks.setdefault("groups", {})
         tasks["groups"].setdefault(group_id, [])
         
@@ -345,6 +350,9 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
         tasks["users"][user_id][idx]["status"] = "done"
 
     elif scope == "g" and group_id:
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
+        
         tasks["groups"][group_id][idx].setdefault("done_by", []).append(user_id)
 
     save_tasks(tasks)
@@ -360,7 +368,7 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
         group_tasks = [
             t for t in tasks["groups"][group_id]
             if user_id not in t.get("done_by", [])
-            ]
+        ]
     
     send_schedule(reply_token, personal, group_tasks)
     
@@ -378,11 +386,11 @@ def handle_show_done(reply_token, user_id, source_type, group_id=None):
     if source_type == "group" and group_id:
         tasks.setdefault("groups", {})
         tasks["groups"].setdefault(group_id, [])
-
+        
         group_done = [
             t for t in tasks["groups"][group_id]
             if user_id in t.get("done_by", [])
-        ]
+            ]
 
     send_done_schedule(reply_token, personal_done, group_done)
 
@@ -396,6 +404,9 @@ def handle_undo(reply_token, user_id, data, group_id=None):
         tasks["users"][user_id][idx]["status"] = "todo"
 
     elif scope == "g" and group_id:
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
+        
         if user_id in tasks["groups"][group_id][idx].get("done_by", []):
             tasks["groups"][group_id][idx]["done_by"].remove(user_id)
 
@@ -451,7 +462,10 @@ def webhook():
                     tasks.setdefault("groups", {})
                     tasks["groups"].setdefault(group_id, [])
                     
-                    group_tasks = [t for t in tasks["groups"][group_id]if user_id not in t.get("done_by", [])]
+                    group_tasks = [
+                        t for t in tasks["groups"][group_id]
+                        if user_id not in t.get("done_by", [])
+                        ]
                     
                 send_schedule(reply_token, personal, group_tasks)
 
