@@ -41,6 +41,21 @@ def send_reply(reply_token, text):
     print("LINE reply status:", res.status_code)
     print("LINE reply body:", res.text)
 
+def send_push(user_id, message):
+    url = "https://api.line.me/v2/bot/message/push"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
+    }
+    data = {
+        "to": user_id,
+        "messages": [message]
+    }
+
+    res = requests.post(url, headers=headers, json=data)
+    print("PUSH status:", res.status_code)
+    print("PUSH body:", res.text)
+
 def send_flex(reply_token, flex):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
@@ -265,14 +280,28 @@ def webhook():
     print(body)
 
     for event in body.get("events", []):
-
-        reply_token = event["replyToken"]
+        source_type = event["source"]["type"]
         user_id = event["source"]["userId"]
 
         # ===== POSTBACK =====
         if event["type"] == "postback":
             data = event["postback"]["data"]
-            print("POSTBACK:", data)
+            reply_token = event["replyToken"]
+            
+            # グループ内で個人追加が押された場合
+            if data == "scope=menu&action=add" and source_type == "group":
+                
+                push_message = {
+                "type": "text",
+                    "text": "📅 個人予定を追加するよ。予定を書いてね。"
+                    }
+                
+                user_states[user_id] = "add_personal"
+                
+                send_push(user_id, push_message)
+                
+                # グループには何も返さない
+                print("POSTBACK:", data)
 
             # 予定表
             if data == "scope=menu&action=list":
