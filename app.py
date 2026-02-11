@@ -314,7 +314,7 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
 
         send_schedule(reply_token, personal, group_tasks)
     
-    elif state and state.startswith("add_global_"):
+    if state and state.startswith("add_global_"):
         
         group_id = state.replace("add_global_", "")
         tasks = load_tasks()
@@ -419,7 +419,7 @@ def webhook():
             group_id = source["groupId"]
 
         # ===== POSTBACK =====
-        elif event["type"] == "postback":
+        if event["type"] == "postback":
             data = event["postback"]["data"]
             reply_token = event["replyToken"]
             
@@ -460,7 +460,7 @@ def webhook():
                 handle_done(reply_token, user_id, data, source_type, group_id)
             
             elif data.startswith("#list_undo_"):
-                handle_undohan(reply_token, user_id, data, source_type, group_id)
+                handle_undo(reply_token, user_id, data, source_type, group_id)
 
             # 追加
             elif data == "scope=menu&action=add":
