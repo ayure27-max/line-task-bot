@@ -13,7 +13,7 @@ DATA_FILE = "tasks.json"
 
 def load_tasks():
     if not os.path.exists(DATA_FILE):
-        return {"users": {}, "global": []}
+        return {"users": {},"groups":{"groupId1": [],"groupId2": []}}
 
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -234,10 +234,15 @@ def handle_message(reply_token, user_id, text):
 
         send_schedule(reply_token, personal, global_tasks)
     
-    elif state == "add_global":
+    elif state and state.startswith("add_global_"):
+        
+        group_id = state.replace("add_global_", "")
         tasks = load_tasks()
         
-        tasks["global"].append({
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
+        
+        tasks["groups"][group_id].append({
             "text": text,
             "done_by": []
         })
@@ -245,10 +250,7 @@ def handle_message(reply_token, user_id, text):
         save_tasks(tasks)
         user_states.pop(user_id)
         
-        personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-        global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-        
-        send_schedule(reply_token, personal, global_tasks)
+        send_reply(reply_token, "🌍 全体予定を追加したよ")
 
     else:
         send_reply(reply_token, "メニューから操作してね")
@@ -282,6 +284,10 @@ def webhook():
     for event in body.get("events", []):
         source_type = event["source"]["type"]
         user_id = event["source"]["userId"]
+        
+        group_id = None
+        if source_type == "group":
+            group_id = source["groupId"]
 
         # ===== POSTBACK =====
         if event["type"] == "postback":
@@ -327,6 +333,10 @@ def webhook():
             elif data == "#add_global":
                 user_states[user_id] = "add_global"
                 send_reply(reply_token, "全体予定を入力してね")
+            
+            elif data == "#add_global" and source_type == "group":
+                user_states[user_id] = f"add_global_{group_id}"
+                send_reply(reply_token, "🌍 全体予定を書いてね")
 
             # その他
             else:
