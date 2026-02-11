@@ -13,7 +13,7 @@ DATA_FILE = "tasks.json"
 
 def load_tasks():
     if not os.path.exists(DATA_FILE):
-        return {"users": {},"groups":{"groupId1": [],"groupId2": []}}
+        return {"users": {}, "groups": {}}
 
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -92,6 +92,8 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
                 body.append(task_row(task["text"], f"#list_undo_p_{i}", label="復帰"))
             else:
                 body.append(task_row(task["text"], f"#list_done_p_{i}", label="完了"))
+        else:
+            body.append(empty_row())
 
     # 🌍 全体予定
     body.append({
@@ -272,7 +274,7 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     else:
         send_reply(reply_token, "メニューから操作してね")
 
-def handle_done(reply_token, user_id, data, group_id=None):
+def handle_done(reply_token, user_id, data, source_type, group_id=None):
     tasks = load_tasks()
 
     _, _, scope, idx = data.split("_")
@@ -288,15 +290,18 @@ def handle_done(reply_token, user_id, data, group_id=None):
 
     # 更新後の予定を再表示
     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+    
     group_tasks = []
-                
-    if source_type == "group":
+    if source_type == "group" and group_id:
         tasks.setdefault("groups", {})
         tasks["groups"].setdefault(group_id, [])
-                    
-        group_tasks = [t for t in tasks["groups"][group_id]if user_id not in t.get("done_by", [])]
-                    
-        send_schedule(reply_token, personal, group_tasks)
+        
+        group_tasks = [
+            t for t in tasks["groups"][group_id]
+            if user_id not in t.get("done_by", [])
+            ]
+    
+    send_schedule(reply_token, personal, group_tasks)
 
 def handle_undo(reply_token, user_id, data, group_id=None):
     tasks = load_tasks()
