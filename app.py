@@ -230,9 +230,14 @@ def handle_message(reply_token, user_id, text):
 
         # 保存後、予定表を自動表示
         personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-        global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+        group_tasks = []
+        
+        if source_type == "group":
+            tasks.setdefault("groups", {})
+            tasks["groups"].setdefault(group_id, [])
+            group_tasks = [t for t in tasks["groups"][group_id]if user_id not in t.get("done_by", [])]
 
-        send_schedule(reply_token, personal, global_tasks)
+        send_schedule(reply_token, personal, group_tasks)
     
     elif state and state.startswith("add_global_"):
         
@@ -271,9 +276,15 @@ def handle_done(reply_token, user_id, data):
 
     # 更新後の予定を再表示
     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-    global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-
-    send_schedule(reply_token, personal, global_tasks)
+    group_tasks = []
+                
+    if source_type == "group":
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
+                    
+        group_tasks = [t for t in tasks["groups"][group_id]if user_id not in t.get("done_by", [])]
+                    
+        send_schedule(reply_token, personal, group_tasks)
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -282,9 +293,10 @@ def webhook():
     print(body)
 
     for event in body.get("events", []):
-        source_type = event["source"]["type"]
-        user_id = event["source"]["userId"]
-        
+        source = event["source"]
+        source_type = source["type"]
+        user_id = source["userId"]
+
         group_id = None
         if source_type == "group":
             group_id = source["groupId"]
@@ -314,9 +326,17 @@ def webhook():
                 tasks = load_tasks()
 
                 personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-                global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
-
-                send_schedule(reply_token, personal, global_tasks)
+                
+                 # グループ予定
+                group_tasks = []
+                
+                if source_type == "group":
+                    tasks.setdefault("groups", {})
+                    tasks["groups"].setdefault(group_id, [])
+                    
+                    group_tasks = [t for t in tasks["groups"][group_id]if user_id not in t.get("done_by", [])]
+                    
+                send_schedule(reply_token, personal, group_tasks)
 
             # 完了処理
             elif data.startswith("#list_done_"):
