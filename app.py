@@ -200,16 +200,24 @@ def handle_menu_add(reply_token, user_id):
 def handle_message(reply_token, user_id, text):
     state = user_states.get(user_id)
 
+    # 個人予定追加モード
     if state == "add_personal":
         tasks = load_tasks()
+
         tasks["users"].setdefault(user_id, []).append({
             "text": text,
             "status": "todo"
         })
+
         save_tasks(tasks)
 
         user_states.pop(user_id)
-        send_reply(reply_token, "📅 個人予定を追加したよ")
+
+        # 保存後、予定表を自動表示
+        personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+        global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+
+        send_schedule(reply_token, personal, global_tasks)
 
     else:
         send_reply(reply_token, "メニューから操作してね")
@@ -266,6 +274,10 @@ def webhook():
             # 追加
             elif data == "scope=menu&action=add":
                 handle_menu_add(reply_token, user_id)
+                
+            elif data == "#add_personal":
+                user_states[user_id] = "add_personal"
+                send_reply(reply_token, "追加する予定を送ってね")
 
             # その他
             else:
