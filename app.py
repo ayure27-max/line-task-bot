@@ -208,7 +208,7 @@ def send_done_schedule(reply_token, personal_done, group_done):
                 "wrap": True
             })
 
-    if group_done:
+    elif group_done:
         body.append({
             "type": "text",
             "text": "【グループ】",
@@ -419,7 +419,7 @@ def webhook():
             group_id = source["groupId"]
 
         # ===== POSTBACK =====
-        if event["type"] == "postback":
+        elif event["type"] == "postback":
             data = event["postback"]["data"]
             reply_token = event["replyToken"]
             
