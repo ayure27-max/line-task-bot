@@ -1,6 +1,7 @@
 from flask import Flask, request
 import requests
 import os
+import json
 
 app = Flask(__name__)
 
@@ -8,6 +9,18 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 print("TOKEN EXISTS:", bool(LINE_CHANNEL_ACCESS_TOKEN))
 
 user_states = {}
+DATA_FILE = "tasks.json"
+
+def load_tasks():
+    if not os.path.exists(DATA_FILE):
+        return {"users": {}, "global": []}
+
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_tasks(data):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
     
 def send_reply(reply_token, text):
     url = "https://api.line.me/v2/bot/message/reply"
@@ -201,6 +214,26 @@ def handle_message(reply_token, user_id, text):
     else:
         send_reply(reply_token, "メニューから操作してね")
 
+def handle_done(reply_token, user_id, data):
+    tasks = load_tasks()
+
+    _, _, scope, idx = data.split("_")
+    idx = int(idx)
+
+    if scope == "p":
+        tasks["users"][user_id][idx]["status"] = "done"
+
+    elif scope == "g":
+        tasks["global"][idx].setdefault("done_by", []).append(user_id)
+
+    save_tasks(tasks)
+
+    # 更新後の予定を再表示
+    personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+    global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+
+    send_schedule(reply_token, personal, global_tasks)
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     body = request.get_json()
@@ -208,17 +241,40 @@ def webhook():
     print(body)
 
     for event in body.get("events", []):
-        print("EVENT:", event)
 
+        reply_token = event["replyToken"]
+        user_id = event["source"]["userId"]
+
+        # ===== POSTBACK =====
         if event["type"] == "postback":
             data = event["postback"]["data"]
-            reply_token = event["replyToken"]
+            print("POSTBACK:", data)
 
-            print("POSTBACK DATA:", data)
-            print("REPLY TOKEN:", reply_token)
-
+            # 予定表
             if data == "scope=menu&action=list":
-                send_reply(reply_token, "📋 予定表を押したね")
+                tasks = load_tasks()
+
+                personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+                global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+
+                send_schedule(reply_token, personal, global_tasks)
+
+            # 完了処理
+            elif data.startswith("#list_done_"):
+                handle_done(reply_token, user_id, data)
+
+            # 追加
+            elif data == "scope=menu&action=add":
+                handle_menu_add(reply_token, user_id)
+
+            # その他
+            else:
+                send_reply(reply_token, "未定義メニュー")
+
+        # ===== MESSAGE =====
+        elif event["type"] == "message":
+            text = event["message"]["text"]
+            handle_message(reply_token, user_id, text)
 
     return "OK", 200
 
