@@ -334,8 +334,9 @@ def webhook():
 
         # ===== MESSAGE =====
         elif event["type"] == "message":
-            text = event["message"]["text"]
-            handle_message(reply_token, user_id, text)
+            if source_type == "user":
+                text = event["message"]["text"]
+                handle_message(reply_token, user_id, text)
 
     return "OK", 200
 
