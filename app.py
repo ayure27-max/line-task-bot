@@ -94,8 +94,8 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
                 body.append(
                     task_row(
                         task["text"],
-                        f"#list_done_g_{p}",
-                        f"#list_delete_g_{p}",
+                        f"#list_done_p_{i}",
+                        f"#list_delete_p_{i}",
                         label="完了"
                     )
                 )
