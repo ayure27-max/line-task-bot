@@ -260,7 +260,7 @@ def handle_message(reply_token, user_id, text):
     else:
         send_reply(reply_token, "メニューから操作してね")
 
-def handle_done(reply_token, user_id, data):
+def handle_done(reply_token, user_id, data, group_id=None):
     tasks = load_tasks()
 
     _, _, scope, idx = data.split("_")
@@ -269,8 +269,8 @@ def handle_done(reply_token, user_id, data):
     if scope == "p":
         tasks["users"][user_id][idx]["status"] = "done"
 
-    elif scope == "g":
-        tasks["global"][idx].setdefault("done_by", []).append(user_id)
+    elif scope == "g" and group_id:
+        tasks["groups"][group_id][idx].setdefault("done_by", []).append(user_id)
 
     save_tasks(tasks)
 
@@ -340,7 +340,7 @@ def webhook():
 
             # 完了処理
             elif data.startswith("#list_done_"):
-                handle_done(reply_token, user_id, data)
+                handle_done(reply_token, user_id, data, group_id)
 
             # 追加
             elif data == "scope=menu&action=add":
@@ -349,10 +349,6 @@ def webhook():
             elif data == "#add_personal":
                 user_states[user_id] = "add_personal"
                 send_reply(reply_token, "追加する予定を送ってね")
-                
-            elif data == "#add_global":
-                user_states[user_id] = "add_global"
-                send_reply(reply_token, "全体予定を入力してね")
             
             elif data == "#add_global" and source_type == "group":
                 user_states[user_id] = f"add_global_{group_id}"
