@@ -218,6 +218,22 @@ def handle_message(reply_token, user_id, text):
         global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
 
         send_schedule(reply_token, personal, global_tasks)
+    
+    elif state == "add_global":
+        tasks = load_tasks()
+        
+        tasks["global"].append({
+            "text": text,
+            "done_by": []
+        })
+        
+        save_tasks(tasks)
+        user_states.pop(user_id)
+        
+        personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+        global_tasks = [t for t in tasks["global"] if user_id not in t.get("done_by", [])]
+        
+        send_schedule(reply_token, personal, global_tasks)
 
     else:
         send_reply(reply_token, "メニューから操作してね")
@@ -278,6 +294,10 @@ def webhook():
             elif data == "#add_personal":
                 user_states[user_id] = "add_personal"
                 send_reply(reply_token, "追加する予定を送ってね")
+                
+            elif data == "#add_global":
+                user_states[user_id] = "add_global"
+                send_reply(reply_token, "全体予定を入力してね")
 
             # その他
             else:
