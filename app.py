@@ -470,9 +470,13 @@ def webhook():
                 user_states[user_id] = "add_personal"
                 send_reply(reply_token, "追加する予定を送ってね")
             
-            elif data == "#add_global" and source_type == "group":
-                user_states[user_id] = f"add_global_{group_id}"
-                send_reply(reply_token, "🌍 全体予定を書いてね")
+            elif data == "#add_global":
+                if source_type == "group":
+                    user_states[user_id] = f"add_global_{group_id}"
+                    send_reply(reply_token, "🌍 全体予定を書いてね")
+                    
+                else:
+                    send_reply(reply_token, "🌍 全体予定はグループでのみ使えます")
                 
             elif data == "#show_done":
                 handle_show_done(reply_token, user_id, source_type, group_id)
