@@ -322,6 +322,7 @@ def handle_menu_add(reply_token, user_id):
                             "data": "#add_check"
                         }
                     },
+                    {
                         "type": "button",
                         "style": "secondary",
                         "action": {
