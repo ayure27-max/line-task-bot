@@ -212,7 +212,7 @@ def handle_menu_add(reply_token, user_id):
 
     send_flex(reply_token, flex)
     
-def handle_message(reply_token, user_id, text):
+def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     state = user_states.get(user_id)
 
     # 個人予定追加モード
@@ -360,9 +360,9 @@ def webhook():
 
         # ===== MESSAGE =====
         elif event["type"] == "message":
-            if source_type == "user":
-                text = event["message"]["text"]
-                handle_message(reply_token, user_id, text)
+            reply_token = event["replyToken"]
+            text = event["message"]["text"]
+            handle_message(reply_token, user_id, text, source_type, group_id)
 
     return "OK", 200
 
