@@ -91,7 +91,14 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
             if show_done:
                 body.append(task_row(task["text"], f"#list_undo_p_{i}", label="復帰"))
             else:
-                body.append(task_row(task["text"], f"#list_done_p_{i}", label="完了"))
+                body.append(
+                    task_row(
+                        task["text"],
+                        f"#list_done_g_{p}",
+                        f"#list_delete_g_{p}"
+                        label="完了"
+                    )
+                )
         else:
             body.append(empty_row())
 
@@ -105,7 +112,13 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
 
     if global_tasks:
         for i, task in enumerate(global_tasks):
-            body.append(task_row(task["text"], f"#list_done_g_{i}"))
+            body.append(
+                task_row(
+                    task["text"],
+                    f"#list_done_g_{i}",
+                    f"#list_delete_g_{i}",
+                )
+            )
     else:
         body.append(empty_row())
         
@@ -130,7 +143,32 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
         }
     }
 
-def task_row(text, postback_data, label="完了"):
+def task_row(text, done_data, delete_data=None, label="完了"):
+    buttons = [
+        {
+            "type": "button",
+            "style": "secondary",
+            "height": "sm",
+            "action": {
+                "type": "postback",
+                "label": label,
+                "data": done_data
+            }
+        }
+    ]
+
+    if delete_data:
+        buttons.append({
+            "type": "button",
+            "style": "secondary",
+            "height": "sm",
+            "action": {
+                "type": "postback",
+                "label": "削除",
+                "data": delete_data
+            }
+        })
+
     return {
         "type": "box",
         "layout": "horizontal",
@@ -143,14 +181,11 @@ def task_row(text, postback_data, label="完了"):
                 "flex": 5
             },
             {
-                "type": "button",
-                "style": "secondary",
-                "height": "sm",
-                "action": {
-                    "type": "postback",
-                    "label": label,
-                    "data": postback_data
-                }
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "xs",
+                "contents": buttons,
+                "flex": 2
             }
         ]
     }
@@ -414,6 +449,37 @@ def handle_undo(reply_token, user_id, data, group_id=None):
 
     send_reply(reply_token, "復帰したよ")
 
+def handle_delete(reply_token, user_id, data, source_type, group_id=None):
+    tasks = load_tasks()
+
+    _, _, scope, idx = data.split("_")
+    idx = int(idx)
+
+    if scope == "p":
+        if user_id in tasks["users"] and idx < len(tasks["users"][user_id]):
+            tasks["users"][user_id].pop(idx)
+
+    elif scope == "g" and group_id:
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
+
+        if idx < len(tasks["groups"][group_id]):
+            tasks["groups"][group_id].pop(idx)
+
+    save_tasks(tasks)
+
+    # 削除後に再描画
+    personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+
+    group_tasks = []
+    if source_type == "group" and group_id:
+        group_tasks = [
+            t for t in tasks["groups"][group_id]
+            if user_id not in t.get("done_by", [])
+        ]
+
+    send_schedule(reply_token, personal, group_tasks)
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     body = request.get_json()
@@ -491,6 +557,9 @@ def webhook():
                     
                 else:
                     send_reply(reply_token, "🌍 全体予定はグループでのみ使えます")
+                
+            elif data.startswith("#list_delete_"):
+                handle_delete(reply_token, user_id, data, source_type, group_id)
                 
             elif data == "#show_done":
                 handle_show_done(reply_token, user_id, source_type, group_id)
