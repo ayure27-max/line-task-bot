@@ -321,7 +321,13 @@ def handle_menu_add(reply_token, user_id):
                             "label": "チェックリスト",
                             "data": "#add_check"
                         }
-                    }
+                    },
+                        "type": "button",
+                        "style": "secondary",
+                        "action": {
+                            "type": "postback",
+                            "label": "チェックリストを見る",
+                            "data": "#list_check"
                 ]
             }
         }
@@ -493,6 +499,28 @@ def handle_undo(reply_token, user_id, data, group_id=None):
 
     send_reply(reply_token, "復帰したよ")
 
+def handle_list_check(reply_token, user_id):
+    tasks = load_tasks()
+
+    checklists = tasks.get("checklists", {}).get(user_id, [])
+
+    if not checklists:
+        send_reply(reply_token, "📭 チェックリストはまだありません")
+        return
+
+    message = "📝 あなたのチェックリスト\n\n"
+
+    for i, cl in enumerate(checklists):
+        message += f"{i+1}. {cl['title']}\n"
+
+        for item in cl["items"]:
+            mark = "☑" if item["done"] else "⬜"
+            message += f"   {mark} {item['text']}\n"
+
+        message += "\n"
+
+    send_reply(reply_token, message)
+
 def handle_delete(reply_token, user_id, data, source_type, group_id=None):
     tasks = load_tasks()
 
@@ -611,6 +639,9 @@ def webhook():
             elif data == "#add_check":
                 user_states[user_id] = "add_check_title"
                 send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
+            
+            elif data == "#list_check":
+                handle_list_check(reply_token, user_id)
 
             # その他
             else:
