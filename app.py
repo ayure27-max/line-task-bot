@@ -329,10 +329,10 @@ def handle_menu_add(reply_token, user_id):
                             "type": "postback",
                             "label": "チェックリストを見る",
                             "data": "#list_check"
+                        }
+                    }
                 ]
-            }
-        }
-    }
+    
 
     send_flex(reply_token, flex)
     
