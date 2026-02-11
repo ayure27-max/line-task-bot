@@ -319,16 +319,16 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         group_id = state.replace("add_global_", "")
         tasks = load_tasks()
             
-            tasks.setdefault("groups", {})
-            tasks["groups"].setdefault(group_id, [])
+        tasks.setdefault("groups", {})
+        tasks["groups"].setdefault(group_id, [])
         
-            tasks["groups"][group_id].append({
-                "text": text,
-                "done_by": []
-            })
+        tasks["groups"][group_id].append({
+            "text": text,
+            "done_by": []
+        })
         
-            save_tasks(tasks)
-            user_states.pop(user_id)
+        save_tasks(tasks)
+        user_states.pop(user_id)
         
         send_reply(reply_token, "🌍 全体予定を追加したよ")
 
