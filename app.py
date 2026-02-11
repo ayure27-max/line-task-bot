@@ -95,7 +95,7 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
                     task_row(
                         task["text"],
                         f"#list_done_g_{p}",
-                        f"#list_delete_g_{p}"
+                        f"#list_delete_g_{p}",
                         label="完了"
                     )
                 )
