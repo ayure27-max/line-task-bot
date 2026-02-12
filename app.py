@@ -36,16 +36,15 @@ from psycopg.rows import dict_row
 DEFAULT_TASKS = {"users": {}, "groups": {}, "checklists": {}, "settings": {}}
 
 def db_connect():
-    db_url = os.getenv("DATABASE_URL")
-    if not db_url:
+    if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL が未設定です（Renderの環境変数に入れてね）")
-    return psycopg.connect(db_url, row_factory=dict_row)
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
 def init_db():
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kv_store (
+                CREATE TABLE IF NOT EXISTS public.kv_store (
                     k TEXT PRIMARY KEY,
                     v JSONB NOT NULL,
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -56,10 +55,10 @@ def load_tasks():
     init_db()
     with db_connect() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT v FROM kv_store WHERE k = %s;", ("tasks",))
+            cur.execute("SELECT v FROM public.kv_store WHERE k = %s;", ("tasks",))
             row = cur.fetchone()
 
-    data = row["v"] if row else DEFAULT_TASKS.copy()
+    data = (row["v"] if row else DEFAULT_TASKS.copy())
     data.setdefault("users", {})
     data.setdefault("groups", {})
     data.setdefault("checklists", {})
@@ -71,7 +70,7 @@ def save_tasks(data):
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO kv_store (k, v)
+                INSERT INTO public.kv_store (k, v)
                 VALUES (%s, %s)
                 ON CONFLICT (k)
                 DO UPDATE SET v = EXCLUDED.v, updated_at = now();
