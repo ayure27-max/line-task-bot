@@ -657,7 +657,27 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         return
 
     # （以下、既存の add_check_title / add_personal / board_add... など）
-
+    
+    # ✅ 集会所の全体予定 追加
+    if state and state.startswith("space_add_global:"):
+        tasks = load_tasks()
+        sid = state.split(":", 1)[1]
+        
+        # 念のため space_tasks を準備
+        tasks.setdefault("space_tasks", {})
+        tasks["space_tasks"].setdefault(sid, [])
+        
+        tasks["space_tasks"][sid].append({
+            "text": text,
+            "status": "todo"
+        })
+        
+        save_tasks(tasks)
+        user_states.pop(user_id, None)
+        
+        send_reply(reply_token, "🌍 全体予定を追加したよ")
+        return
+    
     # ✅ 伝言板 追加（ここを最上部に）
     if state and state.startswith("board_add"):
         tasks = load_tasks()
@@ -789,6 +809,14 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
         tasks.setdefault("groups", {})
         tasks["groups"].setdefault(group_id, [])
         
+     elif scope == "s":
+        sid = get_active_space_id(tasks, user_id)
+        if sid:
+            tasks.setdefault("space_tasks", {})
+            tasks["space_tasks"].setdefault(sid, [])
+            if 0 <= idx < len(tasks["space_tasks"][sid]):
+                tasks["space_tasks"][sid][idx]["status"] = "done"
+        
         tasks["groups"][group_id][idx].setdefault("done_by", []).append(user_id)
 
     save_tasks(tasks)
@@ -855,7 +883,14 @@ def handle_delete(reply_token, user_id, data, source_type, group_id=None):
             if 0 <= idx < len(group_list):
                 group_list.pop(idx)
                 tasks.setdefault("groups", {})[group_id] = group_list
-
+                
+    elif scope == "s":
+        sid = get_active_space_id(tasks, user_id)
+        if sid:
+            tasks.setdefault("space_tasks", {})
+            items = tasks["space_tasks"].setdefault(sid, [])
+            if 0 <= idx < len(items):
+                items.pop(idx
     save_tasks(tasks)
 
     # 削除後の最新状態で再表示（done は除外）
@@ -1386,6 +1421,16 @@ def webhook():
 
                 elif data.startswith("#board_move_"):
                     handle_board_move(reply_token, user_id, data, source_type, group_id)
+                
+                elif data == "#other_add_global":
+                    tasks = load_tasks()
+                    sid = get_active_space_id(tasks, user_id)
+                    if not sid:
+                        send_reply(reply_token, "🗝 先に集会所へ参加してね（その他→合言葉で参加）")
+                        
+                    else:
+                        user_states[user_id] = f"space_add_global:{sid}"
+                        send_reply(reply_token, "🌍 全体予定を書いてね（この集会所に追加されるよ）")
 
                 # ====== 予定（schedule）系 ======
                 elif data.startswith("#space_done_"):
