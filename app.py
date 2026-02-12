@@ -451,6 +451,24 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
     
     send_schedule(reply_token, personal, group_tasks)
     
+def handle_toggle_check(reply_token, user_id, data):
+    tasks = load_tasks()
+
+    _, _, c_idx, i_idx = data.split("_")
+    c_idx = int(c_idx)
+    i_idx = int(i_idx)
+
+    checklist = tasks["checklists"][user_id][c_idx]
+    item = checklist["items"][i_idx]
+
+    # 状態反転
+    item["done"] = not item["done"]
+
+    save_tasks(tasks)
+
+    # 再表示
+    handle_list_check(reply_token, user_id)
+    
 def handle_show_done(reply_token, user_id, source_type, group_id=None):
     tasks = load_tasks()
 
@@ -498,22 +516,50 @@ def handle_list_check(reply_token, user_id):
 
     checklists = tasks.get("checklists", {}).get(user_id, [])
 
-    if not checklists:
-        send_reply(reply_token, "📭 チェックリストはまだありません")
-        return
+    contents = []
 
-    message = "📝 あなたのチェックリスト\n\n"
+    for c_idx, checklist in enumerate(checklists):
+        contents.append({
+            "type": "text",
+            "text": f"📋 {checklist['title']}",
+            "weight": "bold",
+            "margin": "lg"
+        })
 
-    for i, cl in enumerate(checklists):
-        message += f"{i+1}. {cl['title']}\n"
-
-        for item in cl["items"]:
+        for i_idx, item in enumerate(checklist["items"]):
             mark = "☑" if item["done"] else "⬜"
-            message += f"   {mark} {item['text']}\n"
 
-        message += "\n"
+            contents.append({
+                "type": "button",
+                "style": "secondary",
+                "margin": "sm",
+                "action": {
+                    "type": "postback",
+                    "label": f"{mark} {item['text']}",
+                    "data": f"#toggle_check_{c_idx}_{i_idx}"
+                }
+            })
 
-    send_reply(reply_token, message)
+    if not contents:
+        contents.append({
+            "type": "text",
+            "text": "チェックリストがありません"
+        })
+
+    flex = {
+        "type": "flex",
+        "altText": "チェックリスト",
+        "contents": {
+            "type": "bubble",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": contents
+            }
+        }
+    }
+
+    send_flex(reply_token, flex)
 
 def handle_delete(reply_token, user_id, data, source_type, group_id=None):
     tasks = load_tasks()
@@ -638,8 +684,8 @@ def webhook():
                 user_states[user_id] = "add_check_title"
                 send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
             
-            elif data == "#list_check":
-                handle_list_check(reply_token, user_id)
+            elif data.startswith("#toggle_check_"):
+                handle_toggle_check(reply_token, user_id, data)
 
             # その他
             else:
