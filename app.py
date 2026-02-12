@@ -541,14 +541,31 @@ def handle_list_check(reply_token, user_id):
             "margin": "lg"
         })
         contents.append({
-            "type": "button",
-            "style": "secondary",
+            "type": "box",
+            "layout": "horizontal",
             "margin": "sm",
-            "action": {
-                "type": "postback",
-                "label": "🗑 このチェックリストを削除",
-                "data": f"#delete_check_{c_idx}"
-            }
+            "contents": [
+                {
+                    "type": "button",
+                    "flex": 3,
+                    "style": "secondary",
+                    "action": {
+                        "type": "postback",
+                        "label": f"{status} {item['text']}",
+                        "data": f"#toggle_check_{c_idx}_{i_idx}"
+                    }
+                },
+                {
+                    "type": "button",
+                    "flex": 1,
+                    "style": "secondary",
+                    "action": {
+                        "type": "postback",
+                        "label": "🗑",
+                        "data": f"#delete_item_{c_idx}_{i_idx}"
+                    }
+                }
+            ]
         })
 
         for i_idx, item in enumerate(checklist["items"]):
@@ -616,6 +633,24 @@ def handle_delete(reply_token, user_id, data, source_type, group_id=None):
         ]
 
     send_schedule(reply_token, personal, group_tasks)
+
+def handle_delete_item(reply_token, user_id, data):
+    tasks = load_tasks()
+
+    _, _, c_idx, i_idx = data.split("_")
+    c_idx = int(c_idx)
+    i_idx = int(i_idx)
+
+    if user_id in tasks.get("checklists", {}):
+        if c_idx < len(tasks["checklists"][user_id]):
+            items = tasks["checklists"][user_id][c_idx]["items"]
+            if i_idx < len(items):
+                items.pop(i_idx)
+
+    save_tasks(tasks)
+
+    # 再表示
+    handle_list_check(reply_token, user_id)
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -714,6 +749,9 @@ def webhook():
                 
             elif data.startswith("#delete_check_"):
                 handle_delete_check(reply_token, user_id, data)
+                
+            elif data.startswith("#delete_item_"):
+                handle_delete_item(reply_token, user_id, data)
 
             # その他
             else:
