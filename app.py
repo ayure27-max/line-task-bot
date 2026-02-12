@@ -1312,17 +1312,12 @@ def webhook():
                 if data == "scope=menu&action=list":
                     tasks = load_tasks()
                     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-
-                    group_tasks = []
-                    if source_type == "group" and group_id:
-                        tasks.setdefault("groups", {})
-                        tasks["groups"].setdefault(group_id, [])
-                        group_tasks = [
-                            t for t in tasks["groups"][group_id]
-                            if user_id not in t.get("done_by", [])
-                        ]
-
+                    
                     global_tasks, sid = get_space_global_tasks(tasks, user_id)
+                    
+                    未参加なら全体予定は空（必要なら案内だけ出す）
+                    # if not sid:
+                    #     send_reply(reply_token, "🗝 まだ集会所が未選択だよ。「その他」→「合言葉で集会所に参加」から入ってね")
                     send_schedule(reply_token, personal, global_tasks)
 
                 # --- リッチメニュー：チェックリスト一覧 ---
