@@ -166,8 +166,8 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
                         label="完了"
                     )
                 )
-        else:
-            body.append(empty_row())
+    else:
+        body.append(empty_row())
 
     # 🌍 全体予定
     body.append({
@@ -579,6 +579,49 @@ def handle_show_done(reply_token, user_id, source_type, group_id=None):
             ]
 
     send_done_schedule(reply_token, personal_done, group_done)
+    
+def handle_delete(reply_token, user_id, data, source_type, group_id=None):
+    """
+    data: #list_delete_p_{idx}  or  #list_delete_g_{idx}
+    """
+    tasks = load_tasks()
+
+    # data を分解
+    # 例: "#list_delete_p_0" -> ["#list", "delete", "p", "0"]
+    _, _, scope, idx = data.split("_")
+    idx = int(idx)
+
+    if scope == "p":
+        # 個人予定
+        user_list = tasks.get("users", {}).get(user_id, [])
+        if 0 <= idx < len(user_list):
+            user_list.pop(idx)
+            tasks["users"][user_id] = user_list
+
+    elif scope == "g":
+        # 全体予定（グループ）
+        if source_type == "group" and group_id:
+            group_list = tasks.get("groups", {}).get(group_id, [])
+            if 0 <= idx < len(group_list):
+                group_list.pop(idx)
+                tasks.setdefault("groups", {})[group_id] = group_list
+
+    save_tasks(tasks)
+
+    # 削除後の最新状態で再表示（done は除外）
+    personal = [
+        t for t in tasks.get("users", {}).get(user_id, [])
+        if t.get("status") != "done"
+    ]
+
+    global_tasks = []
+    if source_type == "group" and group_id:
+        global_tasks = [
+            t for t in tasks.get("groups", {}).get(group_id, [])
+            if user_id not in t.get("done_by", [])
+        ]
+
+    send_schedule(reply_token, personal, global_tasks)
 
 def handle_undo(reply_token, user_id, data, group_id):
     tasks = load_tasks()
@@ -989,9 +1032,7 @@ def webhook():
                 handle_done(reply_token, user_id, data, source_type, group_id)
             
             elif data.startswith("#list_undo_"):
-                # もし handle_undo の引数が (reply_token, user_id, data, group_id=None) なら
-                # 下の1行を handle_undo(reply_token, user_id, data, group_id) に変えてOK
-                handle_undo(reply_token, user_id, data, source_type, group_id)
+                handle_undo(reply_token, user_id, data, group_id)
         
             elif data.startswith("#list_delete_"):
                 handle_delete(reply_token, user_id, data, source_type, group_id)
