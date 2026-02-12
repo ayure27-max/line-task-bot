@@ -59,8 +59,8 @@ DEFAULT_TASKS = {
     # 集会所（合言葉）
     "spaces": {},           # space_id -> {name, pass, created_by}
     "memberships": {},      # user_id -> [space_id...]
-    "active_space": {}      # user_id -> space_id
-    "space_tasks": {}   # space_id -> [ {text, done_by: []}, ... ]
+    "active_space": {},      # user_id -> space_id
+    "space_tasks": {},   # space_id -> [ {text, done_by: []}, ... ]
 }
 
 def db_connect():
