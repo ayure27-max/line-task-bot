@@ -10,6 +10,7 @@ print("TOKEN EXISTS:", bool(LINE_CHANNEL_ACCESS_TOKEN))
 
 user_states = {}
 DATA_FILE = "tasks.json"
+checklist_view_state = {}  # user_id -> opened checklist index (int) or None
 
 def load_tasks():
     if not os.path.exists(DATA_FILE):
@@ -480,6 +481,14 @@ def handle_delete_check(reply_token, user_id, data):
             tasks["checklists"][user_id].pop(c_idx)
 
     save_tasks(tasks)
+    
+        # openedの補正（削除でindexがズレるのを防ぐ）
+    opened = checklist_view_state.get(user_id)
+    if opened is not None:
+        if opened == c_idx:
+            checklist_view_state[user_id] = None
+        elif opened > c_idx:
+            checklist_view_state[user_id] = opened - 1
 
     # 再表示
     handle_list_check(reply_token, user_id)
@@ -528,12 +537,12 @@ def handle_undo(reply_token, user_id, data, group_id=None):
 
 def handle_list_check(reply_token, user_id):
     tasks = load_tasks()
-
     checklists = tasks.get("checklists", {}).get(user_id, [])
 
+    opened = checklist_view_state.get(user_id)  # None or int
     bubbles = []
 
-    # チェックリストがない場合
+    # チェックリストがない場合（空バブル1枚）
     if not checklists:
         bubbles.append({
             "type": "bubble",
@@ -552,20 +561,29 @@ def handle_list_check(reply_token, user_id):
         })
     else:
         for c_idx, checklist in enumerate(checklists):
+            is_open = (opened == c_idx)
+            arrow = "▲" if is_open else "▼"
+
+            total = len(checklist.get("items", []))
+            done_count = sum(1 for i in checklist.get("items", []) if i.get("done"))
 
             contents = []
 
-            # タイトル
+            # === タイトル行（開閉 + ゴミ箱）===
+            # Flexのbuttonはlabel文字数がそこまで長くできないので、長いタイトルなら短くするのもあり
             contents.append({
                 "type": "box",
                 "layout": "horizontal",
                 "contents": [
                     {
-                        "type": "text",
-                        "text": f"📋 {checklist['title']}",
-                        "weight": "bold",
-                        "size": "lg",
-                        "flex": 4
+                        "type": "button",
+                        "flex": 4,
+                        "style": "primary",
+                        "action": {
+                            "type": "postback",
+                            "label": f"{arrow} {checklist['title']}",
+                            "data": f"#toggle_list_{c_idx}"
+                        }
                     },
                     {
                         "type": "button",
@@ -580,9 +598,7 @@ def handle_list_check(reply_token, user_id):
                 ]
             })
 
-            total = len(checklist["items"])
-            done_count = sum(1 for i in checklist["items"] if i["done"])
-
+            # === 進捗 ===
             contents.append({
                 "type": "text",
                 "text": f"進捗: {done_count}/{total}",
@@ -591,56 +607,86 @@ def handle_list_check(reply_token, user_id):
                 "margin": "sm"
             })
 
-            # 項目
-            for i_idx, item in enumerate(checklist["items"]):
-                mark = "☑" if item["done"] else "⬜"
+            # === 開いている時だけ中身表示 ===
+            if is_open:
+                items = checklist.get("items", [])
 
+                if not items:
+                    contents.append({
+                        "type": "text",
+                        "text": "項目がありません（追加してね）",
+                        "size": "sm",
+                        "color": "#999999",
+                        "margin": "md"
+                    })
+                else:
+                    for i_idx, item in enumerate(items):
+                        mark = "☑" if item.get("done") else "⬜"
+
+                        contents.append({
+                            "type": "box",
+                            "layout": "horizontal",
+                            "margin": "sm",
+                            "contents": [
+                                {
+                                    "type": "button",
+                                    "flex": 4,
+                                    "style": "secondary",
+                                    "action": {
+                                        "type": "postback",
+                                        "label": f"{mark} {item['text']}",
+                                        "data": f"#toggle_check_{c_idx}_{i_idx}"
+                                    }
+                                },
+                                {
+                                    "type": "button",
+                                    "flex": 1,
+                                    "style": "secondary",
+                                    "action": {
+                                        "type": "postback",
+                                        "label": "🗑",
+                                        "data": f"#delete_item_{c_idx}_{i_idx}"
+                                    }
+                                }
+                            ]
+                        })
+
+                # リスト丸ごと削除（誤タップ防止で下にも置く）
                 contents.append({
-                    "type": "box",
-                    "layout": "horizontal",
-                    "margin": "sm",
-                    "contents": [
-                        {
-                            "type": "button",
-                            "flex": 4,
-                            "style": "secondary",
-                            "action": {
-                                "type": "postback",
-                                "label": f"{mark} {item['text']}",
-                                "data": f"#toggle_check_{c_idx}_{i_idx}"
-                            }
-                        },
-                        {
-                            "type": "button",
-                            "flex": 1,
-                            "style": "secondary",
-                            "action": {
-                                "type": "postback",
-                                "label": "🗑",
-                                "data": f"#delete_item_{c_idx}_{i_idx}"
-                            }
-                        }
-                    ]
+                    "type": "button",
+                    "style": "secondary",
+                    "margin": "lg",
+                    "action": {
+                        "type": "postback",
+                        "label": "🗑 このリストを削除",
+                        "data": f"#delete_check_{c_idx}"
+                    }
+                })
+            else:
+                # 閉じている時の「ヒント」
+                contents.append({
+                    "type": "text",
+                    "text": "タップで開く",
+                    "size": "sm",
+                    "color": "#999999",
+                    "margin": "md"
                 })
 
-            # バブル作成
-            bubble = {
+            bubbles.append({
                 "type": "bubble",
                 "body": {
                     "type": "box",
                     "layout": "vertical",
                     "contents": contents
                 }
-            }
-
-            bubbles.append(bubble)
+            })
 
     flex = {
         "type": "flex",
         "altText": "チェックリスト",
         "contents": {
             "type": "carousel",
-            "contents": bubbles
+            "contents": bubbles[:10]  # カルーセルは最大10バブルが安全
         }
     }
 
@@ -693,6 +739,21 @@ def handle_delete_item(reply_token, user_id, data):
     save_tasks(tasks)
 
     # 再表示
+    handle_list_check(reply_token, user_id)
+    
+def handle_toggle_list(reply_token, user_id, data):
+    _, _, c_idx = data.split("_")
+    c_idx = int(c_idx)
+
+    # 現在開いているもの取得
+    opened = checklist_view_state.get(user_id)
+
+    # 同じものなら閉じる
+    if opened == c_idx:
+        checklist_view_state[user_id] = None
+    else:
+        checklist_view_state[user_id] = c_idx
+
     handle_list_check(reply_token, user_id)
 
 @app.route("/webhook", methods=["POST"])
@@ -804,6 +865,20 @@ def webhook():
                 
             elif data.startswith("#delete_item_"):
                 handle_delete_item(reply_token, user_id, data)
+                
+            elif data.startswith("#toggle_list_"):
+                _, _, c_idx = data.split("_")
+                c_idx = int(c_idx)
+                
+                current = checklist_view_state.get(user_id)
+                
+                # 同じのを押したら閉じる / 違うのを押したらそれを開く
+                if current == c_idx:
+                    checklist_view_state[user_id] = None
+                else:
+                    checklist_view_state[user_id] = c_idx
+                    
+                handle_list_check(reply_token, user_id)
 
             # その他
             else:
