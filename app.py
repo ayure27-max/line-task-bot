@@ -1315,7 +1315,6 @@ def webhook():
                     
                     global_tasks, sid = get_space_global_tasks(tasks, user_id)
                     
-                    未参加なら全体予定は空（必要なら案内だけ出す）
                     # if not sid:
                     #     send_reply(reply_token, "🗝 まだ集会所が未選択だよ。「その他」→「合言葉で集会所に参加」から入ってね")
                     send_schedule(reply_token, personal, global_tasks)
