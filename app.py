@@ -321,15 +321,6 @@ def handle_menu_add(reply_token, user_id):
                             "label": "チェックリスト作成",
                             "data": "#add_check"
                         }
-                    },
-                    {
-                        "type": "button",
-                        "style": "secondary",
-                        "action": {
-                            "type": "postback",
-                            "label": "チェックリストを見る",
-                            "data": "#list_check"
-                        }
                     }
                 ]
             }
@@ -609,6 +600,10 @@ def webhook():
                         ]
                     
                 send_schedule(reply_token, personal, group_tasks)
+                
+            # チェックリスト一覧（リッチメニュー）
+            elif data == "scope=menu&action=check":
+                handle_list_check(reply_token, user_id)
 
             # 完了処理
             elif data.startswith("#list_done_"):
