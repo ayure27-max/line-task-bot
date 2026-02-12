@@ -22,6 +22,7 @@ def load_tasks():
     data.setdefault("users", {})
     data.setdefault("groups", {})
     data.setdefault("checklists", {})
+    data.setdefault("settings", {})
 
     return data
 
@@ -287,7 +288,11 @@ def send_done_schedule(reply_token, personal_done, group_done):
     send_flex(reply_token, flex)
     
 def handle_menu_add(reply_token, user_id):
-    user_states[user_id] = "add_select"
+    tasks = load_tasks()
+    ui = get_check_ui_flags(tasks, user_id)
+
+    del_state = "ON" if ui.get("show_delete") else "OFF"
+    reo_state = "ON" if ui.get("show_reorder") else "OFF"
 
     flex = {
         "type": "flex",
@@ -297,12 +302,21 @@ def handle_menu_add(reply_token, user_id):
             "body": {
                 "type": "box",
                 "layout": "vertical",
+                "spacing": "sm",
                 "contents": [
+                    {
+                        "type": "text",
+                        "text": "➕ 追加/モード",
+                        "weight": "bold",
+                        "size": "lg"
+                    },
+
+                    # ---- 追加系 ----
                     {
                         "type": "button",
                         "action": {
                             "type": "postback",
-                            "label": "個人予定",
+                            "label": "個人予定を追加",
                             "data": "#add_personal"
                         }
                     },
@@ -310,7 +324,7 @@ def handle_menu_add(reply_token, user_id):
                         "type": "button",
                         "action": {
                             "type": "postback",
-                            "label": "全体予定",
+                            "label": "全体予定を追加",
                             "data": "#add_global"
                         }
                     },
@@ -320,6 +334,40 @@ def handle_menu_add(reply_token, user_id):
                             "type": "postback",
                             "label": "チェックリスト作成",
                             "data": "#add_check"
+                        }
+                    },
+
+                    # ---- 区切り ----
+                    {
+                        "type": "separator",
+                        "margin": "lg"
+                    },
+                    {
+                        "type": "text",
+                        "text": "🛠 操作モード（普段は隠す）",
+                        "weight": "bold",
+                        "margin": "lg",
+                        "size": "sm",
+                        "color": "#666666"
+                    },
+
+                    # ---- モード切替 ----
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "action": {
+                            "type": "postback",
+                            "label": f"🗑 削除モード：{del_state}",
+                            "data": "#toggle_delete_mode"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "action": {
+                            "type": "postback",
+                            "label": f"↕ 並び替えモード：{reo_state}",
+                            "data": "#toggle_reorder_mode"
                         }
                     }
                 ]
@@ -786,6 +834,21 @@ def handle_move_item(reply_token, user_id, data):
     # 並び替え後もそのリストを開いて表示
     handle_list_check(reply_token, user_id, c_idx)
     
+def get_check_ui_flags(tasks, user_id):
+    tasks.setdefault("settings", {})
+    tasks["settings"].setdefault(user_id, {})
+    tasks["settings"][user_id].setdefault("check_ui", {})
+    ui = tasks["settings"][user_id]["check_ui"]
+
+    ui.setdefault("show_delete", False)
+    ui.setdefault("show_reorder", False)
+    return ui
+
+def toggle_check_ui_flag(tasks, user_id, flag_key):
+    ui = get_check_ui_flags(tasks, user_id)
+    ui[flag_key] = not ui.get(flag_key, False)
+    return ui[flag_key]
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     body = request.get_json()
@@ -882,7 +945,19 @@ def webhook():
             elif data == "#add_check":
                  user_states[user_id] = "add_check_title"
                  send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
-
+                
+            elif data == "#toggle_delete_mode":
+                tasks = load_tasks()
+                new_state = toggle_check_ui_flag(tasks, user_id, "show_delete")
+                save_tasks(tasks)
+                # 状態が変わったので、追加メニューを描き直してラベル更新
+                handle_menu_add(reply_token, user_id)
+                
+            elif data == "#toggle_reorder_mode":
+                tasks = load_tasks()
+                new_state = toggle_check_ui_flag(tasks, user_id, "show_reorder")
+                save_tasks(tasks)
+                handle_menu_add(reply_token, user_id)
             # その他
         
             else:
