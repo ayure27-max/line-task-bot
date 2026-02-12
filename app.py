@@ -50,7 +50,10 @@ DATA_FILE = "tasks.json"
 import psycopg
 from psycopg.rows import dict_row
 
-DEFAULT_TASKS = {"users": {}, "groups": {}, "checklists": {}, "settings": {}}
+DEFAULT_TASKS = {
+    "users": {}, "groups": {}, "checklists": {}, "settings": {},
+    "board": {"users": {}, "groups": {}}
+}
 
 def db_connect():
     if not DATABASE_URL:
@@ -81,6 +84,9 @@ def load_tasks():
     data.setdefault("groups", {})
     data.setdefault("checklists", {})
     data.setdefault("settings", {})
+    data.setdefault("board", {"users": {}, "groups": {}})
+    data["board"].setdefault("users", {})
+    data["board"].setdefault("groups", {})
     return data
 
 def save_tasks(data):
@@ -455,6 +461,109 @@ def handle_menu_add(reply_token, user_id):
 
     send_flex(reply_token, flex)
     
+BOARD_TITLE = "伝言板"
+
+def handle_other_menu(reply_token, user_id, source_type=None, group_id=None):
+    tasks = load_tasks()
+    ui = get_board_ui_flags(tasks, user_id)
+    del_state = "ON" if ui.get("show_delete") else "OFF"
+    reo_state = "ON" if ui.get("show_reorder") else "OFF"
+
+    flex = {
+        "type": "flex",
+        "altText": "その他",
+        "contents": {
+            "type": "bubble",
+            "styles": {"body": {"backgroundColor": "#F8FAFC"}},
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": [
+                    {"type": "text", "text": "🧰 その他", "weight": "bold", "size": "lg"},
+                    {"type": "separator", "margin": "md"},
+
+                    {"type": "button", "style": "primary",
+                     "action": {"type": "postback", "label": f"📌 {BOARD_TITLE} ← 一覧", "data": "#board_list"}},
+
+                    {"type": "button", "style": "secondary",
+                     "action": {"type": "postback", "label": f"➕ {BOARD_TITLE}に入れる", "data": "#board_add"}},
+
+                    {"type": "separator", "margin": "md"},
+
+                    {"type": "text", "text": f"🛠 {BOARD_TITLE}の整理（普段は隠す）",
+                     "size": "sm", "color": "#64748B"},
+
+                    {"type": "button", "style": "secondary",
+                     "action": {"type": "postback", "label": f"🗑 削除モード：{del_state}", "data": "#board_toggle_delete"}},
+
+                    {"type": "button", "style": "secondary",
+                     "action": {"type": "postback", "label": f"↕ 並び替えモード：{reo_state}", "data": "#board_toggle_reorder"}},
+
+                    {"type": "separator", "margin": "md"},
+
+                    {"type": "button", "style": "secondary",
+                     "action": {"type": "postback", "label": "🌍 全体予定追加", "data": "#other_add_global"}}
+                ]
+            }
+        }
+    }
+    send_flex(reply_token, flex)
+    
+def _get_board_list(tasks, source_type, user_id, group_id):
+    if source_type == "group" and group_id:
+        return tasks["board"]["groups"].setdefault(group_id, [])
+    return tasks["board"]["users"].setdefault(user_id, [])
+
+def handle_board_list(reply_token, user_id, source_type=None, group_id=None):
+    tasks = load_tasks()
+    ui = get_board_ui_flags(tasks, user_id)
+    show_delete = ui.get("show_delete", False)
+    show_reorder = ui.get("show_reorder", False)
+
+    items = _get_board_list(tasks, source_type, user_id, group_id)
+
+    body = [
+        {"type": "text", "text": f"📌 {BOARD_TITLE}", "weight": "bold", "size": "lg"},
+        {"type": "text", "text": "（連絡先もお願い事もここにまとめる）", "size": "sm", "color": "#64748B"},
+        {"type": "separator", "margin": "md"},
+    ]
+
+    if not items:
+        body.append({"type": "text", "text": "まだ何も入ってないよ", "color": "#94A3B8"})
+    else:
+        for i, it in enumerate(items):
+            text = it.get("text", "")
+            row = [
+                {"type": "text", "text": f"• {text}", "wrap": True, "flex": 8, "size": "sm"}
+            ]
+
+            if show_delete:
+                row.append({
+                    "type": "button", "style": "secondary", "height": "sm", "flex": 1,
+                    "action": {"type": "postback", "label": "🗑", "data": f"#board_delete_{i}"}
+                })
+
+            body.append({"type": "box", "layout": "horizontal", "spacing": "sm", "contents": row})
+
+            if show_reorder:
+                body.append({
+                    "type": "box", "layout": "horizontal", "spacing": "sm", "margin": "xs",
+                    "contents": [
+                        {"type": "button", "style": "secondary", "height": "sm",
+                         "action": {"type": "postback", "label": "↑", "data": f"#board_move_{i}_up"}},
+                        {"type": "button", "style": "secondary", "height": "sm",
+                         "action": {"type": "postback", "label": "↓", "data": f"#board_move_{i}_down"}},
+                    ]
+                })
+
+    flex = {
+        "type": "flex",
+        "altText": BOARD_TITLE,
+        "contents": {"type": "bubble", "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body}}
+    }
+    send_flex(reply_token, flex)
+    
 def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     state = user_states.get(user_id)
     
@@ -540,6 +649,22 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         user_states.pop(user_id)
 
         send_reply(reply_token, "🌍 全体予定を追加したよ")
+        
+        if state and state.startswith("board_add"):
+            # state: "board_add_user" or "board_add_group:<group_id>"
+            tasks = load_tasks()
+            
+            if state == "board_add_user":
+                tasks["board"]["users"].setdefault(user_id, []).append({"text": text})
+            else:
+                # board_add_group:<gid>
+                gid = state.split(":", 1)[1]
+                tasks["board"]["groups"].setdefault(gid, []).append({"text": text})
+                
+            save_tasks(tasks)
+            user_states.pop(user_id, None)
+            send_reply(reply_token, f"📌 {BOARD_TITLE}に入れたよ")
+            return
 
     # ===== それ以外 =====
     else:
@@ -965,6 +1090,33 @@ def handle_move_item(reply_token, user_id, data):
     # 並び替え後もそのリストを開いて表示
     handle_list_check(reply_token, user_id, c_idx)
     
+def handle_board_delete(reply_token, user_id, data, source_type=None, group_id=None):
+    # data: #board_delete_{i}
+    idx = int(data.split("_")[-1])
+    tasks = load_tasks()
+    items = _get_board_list(tasks, source_type, user_id, group_id)
+    if 0 <= idx < len(items):
+        items.pop(idx)
+        save_tasks(tasks)
+    handle_board_list(reply_token, user_id, source_type, group_id)
+
+def handle_board_move(reply_token, user_id, data, source_type=None, group_id=None):
+    # data: #board_move_{i}_up/down
+    parts = data.split("_")
+    idx = int(parts[2])
+    direction = parts[3]
+    tasks = load_tasks()
+    items = _get_board_list(tasks, source_type, user_id, group_id)
+
+    if direction == "up" and idx > 0:
+        items[idx-1], items[idx] = items[idx], items[idx-1]
+        save_tasks(tasks)
+    elif direction == "down" and idx < len(items)-1:
+        items[idx+1], items[idx] = items[idx], items[idx+1]
+        save_tasks(tasks)
+
+    handle_board_list(reply_token, user_id, source_type, group_id)
+    
 def get_check_ui_flags(tasks, user_id):
     tasks.setdefault("settings", {})
     tasks["settings"].setdefault(user_id, {})
@@ -974,6 +1126,20 @@ def get_check_ui_flags(tasks, user_id):
     ui.setdefault("show_delete", False)
     ui.setdefault("show_reorder", False)
     return ui
+
+def get_board_ui_flags(tasks, user_id):
+    tasks.setdefault("settings", {})
+    tasks["settings"].setdefault(user_id, {})
+    tasks["settings"][user_id].setdefault("board_ui", {})
+    ui = tasks["settings"][user_id]["board_ui"]
+    ui.setdefault("show_delete", False)
+    ui.setdefault("show_reorder", False)
+    return ui
+
+def toggle_board_ui_flag(tasks, user_id, flag_key):
+    ui = get_board_ui_flags(tasks, user_id)
+    ui[flag_key] = not ui.get(flag_key, False)
+    return ui[flag_key]
 
 def toggle_check_ui_flag(tasks, user_id, flag_key):
     ui = get_check_ui_flags(tasks, user_id)
@@ -1041,6 +1207,39 @@ def webhook():
                 # --- 通常：追加メニューを表示 ---
                 elif data == "scope=menu&action=add":
                     handle_menu_add(reply_token, user_id)
+                    
+                elif data in ("scope=menu&action=other", "other"):
+                    handle_other_menu(reply_token, user_id, source_type, group_id)
+                    
+                elif data == "#board_list":
+                    handle_board_list(reply_token, user_id, source_type, group_id)
+                    
+                elif data == "#board_add":
+                    if source_type == "group" and group_id:
+                        user_states[user_id] = f"board_add_group:{group_id}"
+                        send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね（グループ共有）")
+                        
+                    else:
+                        user_states[user_id] = "board_add_user"
+                        send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね（個人用）")
+                        
+                elif data == "#board_toggle_delete":
+                    tasks = load_tasks()
+                    toggle_board_ui_flag(tasks, user_id, "show_delete")
+                    save_tasks(tasks)
+                    handle_other_menu(reply_token, user_id, source_type, group_id)
+                    
+                elif data == "#board_toggle_reorder":
+                    tasks = load_tasks()
+                    toggle_board_ui_flag(tasks, user_id, "show_reorder")
+                    save_tasks(tasks)
+                    handle_other_menu(reply_token, user_id, source_type, group_id)
+                    
+                elif data.startswith("#board_delete_"):
+                    handle_board_delete(reply_token, user_id, data, source_type, group_id)
+                    
+                elif data.startswith("#board_move_"):
+                    handle_board_move(reply_token, user_id, data, source_type, group_id)
 
                 # ====== 予定（schedule）系 ======
                 elif data.startswith("#list_done_"):
