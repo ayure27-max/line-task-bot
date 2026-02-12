@@ -531,79 +531,99 @@ def handle_list_check(reply_token, user_id):
 
     checklists = tasks.get("checklists", {}).get(user_id, [])
 
-    contents = []
+    bubbles = []
 
-    for c_idx, checklist in enumerate(checklists):
-
-        # タイトル
-        contents.append({
-            "type": "text",
-            "text": f"📋 {checklist['title']}",
-            "weight": "bold",
-            "margin": "lg"
-        })
-
-        # 各アイテム
-        for i_idx, item in enumerate(checklist["items"]):
-
-            mark = "☑" if item["done"] else "⬜"
-
-            contents.append({
+    # チェックリストがない場合
+    if not checklists:
+        bubbles.append({
+            "type": "bubble",
+            "body": {
                 "type": "box",
-                "layout": "horizontal",
-                "margin": "sm",
+                "layout": "vertical",
                 "contents": [
                     {
-                        "type": "button",
-                        "flex": 4,
-                        "style": "secondary",
-                        "action": {
-                            "type": "postback",
-                            "label": f"{mark} {item['text']}",
-                            "data": f"#toggle_check_{c_idx}_{i_idx}"
-                        }
-                    },
-                    {
-                        "type": "button",
-                        "flex": 1,
-                        "style": "secondary",
-                        "action": {
-                            "type": "postback",
-                            "label": "🗑",
-                            "data": f"#delete_item_{c_idx}_{i_idx}"
-                        }
+                        "type": "text",
+                        "text": "チェックリストがありません",
+                        "weight": "bold",
+                        "size": "md"
                     }
                 ]
-            })
-
-        # チェックリスト削除ボタン（任意）
-        contents.append({
-            "type": "button",
-            "style": "secondary",
-            "margin": "md",
-            "action": {
-                "type": "postback",
-                "label": "🗑 このチェックリストを削除",
-                "data": f"#delete_check_{c_idx}"
             }
         })
+    else:
+        for c_idx, checklist in enumerate(checklists):
 
-    if not contents:
-        contents.append({
-            "type": "text",
-            "text": "チェックリストがありません"
-        })
+            contents = []
+
+            # タイトル
+            contents.append({
+                "type": "text",
+                "text": f"📋 {checklist['title']}",
+                "weight": "bold",
+                "size": "lg"
+            })
+
+            total = len(checklist["items"])
+            done_count = sum(1 for i in checklist["items"] if i["done"])
+
+            contents.append({
+                "type": "text",
+                "text": f"進捗: {done_count}/{total}",
+                "size": "sm",
+                "color": "#888888",
+                "margin": "sm"
+            })
+
+            # 項目
+            for i_idx, item in enumerate(checklist["items"]):
+                mark = "☑" if item["done"] else "⬜"
+
+                contents.append({
+                    "type": "box",
+                    "layout": "horizontal",
+                    "margin": "sm",
+                    "contents": [
+                        {
+                            "type": "button",
+                            "flex": 4,
+                            "style": "secondary",
+                            "action": {
+                                "type": "postback",
+                                "label": f"{mark} {item['text']}",
+                                "data": f"#toggle_check_{c_idx}_{i_idx}"
+                            }
+                        },
+                        {
+                            "type": "button",
+                            "flex": 1,
+                            "style": "secondary",
+                            "action": {
+                                "type": "postback",
+                                "label": "🗑",
+                                "data": f"#delete_item_{c_idx}_{i_idx}"
+                            }
+                        }
+                    ]
+                })
+
+            # バブル作成
+            bubble = {
+                "type": "bubble",
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": contents
+                }
+            }
+
+            bubbles.append(bubble)
 
     flex = {
         "type": "flex",
         "altText": "チェックリスト",
         "contents": {
-            "type": "bubble",
-            "body": {
-                "type": "box",
-                "layout": "vertical",
-                "contents": contents
-            }
+            "type": "carousel",
+            "contents": bubbles
         }
     }
 
