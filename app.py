@@ -25,6 +25,22 @@ import json
 
 app = Flask(__name__)
 
+DB_READY = False
+
+def ensure_db_ready():
+    global DB_READY
+    if DB_READY:
+        return True
+    try:
+        init_db()          # テーブル作成
+        DB_READY = True
+        print("✅ init_db done (once)")
+        return True
+    except Exception as e:
+        print("❌ init_db failed:", e)
+        DB_READY = False
+        return False
+
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 print("TOKEN EXISTS:", bool(LINE_CHANNEL_ACCESS_TOKEN))
 
@@ -40,25 +56,16 @@ def db_connect():
         raise RuntimeError("DATABASE_URL が未設定です（Renderの環境変数に入れてね）")
     return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
-def init_db():
-    with db_connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS public.kv_store (
-                    k TEXT PRIMARY KEY,
-                    v JSONB NOT NULL,
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                );
-            """)
-
 def load_tasks():
-    init_db()
+    if not ensure_db_ready():
+        raise RuntimeError("DB_INIT_FAILED")
+
     with db_connect() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT v FROM public.kv_store WHERE k = %s;", ("tasks",))
+            cur.execute("SELECT v FROM kv_store WHERE k = %s;", ("tasks",))
             row = cur.fetchone()
 
-    data = (row["v"] if row else DEFAULT_TASKS.copy())
+    data = row["v"] if row else DEFAULT_TASKS.copy()
     data.setdefault("users", {})
     data.setdefault("groups", {})
     data.setdefault("checklists", {})
@@ -66,11 +73,13 @@ def load_tasks():
     return data
 
 def save_tasks(data):
-    init_db()
+    if not ensure_db_ready():
+        raise RuntimeError("DB_INIT_FAILED")
+
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO public.kv_store (k, v)
+                INSERT INTO kv_store (k, v)
                 VALUES (%s, %s)
                 ON CONFLICT (k)
                 DO UPDATE SET v = EXCLUDED.v, updated_at = now();
