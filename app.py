@@ -181,14 +181,14 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
     if personal_tasks:
         for i, task in enumerate(personal_tasks):
             if show_done:
-                body.append(task_row(task["text"], f"#list_undo_p_{i}", label="復帰"))
+                body.append(task_row(task["text"], f"#list_undo_p_{i}", label="↩"))
             else:
                 body.append(
                     task_row(
                         task["text"],
                         f"#list_done_p_{i}",
                         f"#list_delete_p_{i}",
-                        label="完了"
+                        label="✅"
                     )
                 )
     else:
@@ -566,6 +566,22 @@ def handle_board_list(reply_token, user_id, source_type=None, group_id=None):
     
 def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     state = user_states.get(user_id)
+
+    # ✅ 伝言板 追加（ここを最上部に）
+    if state and state.startswith("board_add"):
+        tasks = load_tasks()
+
+        if state == "board_add_user":
+            tasks["board"]["users"].setdefault(user_id, []).append({"text": text})
+        else:
+            # board_add_group:<gid>
+            gid = state.split(":", 1)[1]
+            tasks["board"]["groups"].setdefault(gid, []).append({"text": text})
+
+        save_tasks(tasks)
+        user_states.pop(user_id, None)
+        send_reply(reply_token, f"📌 {BOARD_TITLE}に入れたよ")
+        return
     
     # チェックリストタイトル入力
     if state == "add_check_title":
@@ -650,22 +666,6 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
 
         send_reply(reply_token, "🌍 全体予定を追加したよ")
         
-        if state and state.startswith("board_add"):
-            # state: "board_add_user" or "board_add_group:<group_id>"
-            tasks = load_tasks()
-            
-            if state == "board_add_user":
-                tasks["board"]["users"].setdefault(user_id, []).append({"text": text})
-            else:
-                # board_add_group:<gid>
-                gid = state.split(":", 1)[1]
-                tasks["board"]["groups"].setdefault(gid, []).append({"text": text})
-                
-            save_tasks(tasks)
-            user_states.pop(user_id, None)
-            send_reply(reply_token, f"📌 {BOARD_TITLE}に入れたよ")
-            return
-
     # ===== それ以外 =====
     else:
         send_reply(reply_token, "メニューから操作してね")
