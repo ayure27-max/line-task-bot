@@ -499,24 +499,6 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
     
     send_schedule(reply_token, personal, group_tasks)
     
-def handle_toggle_check(reply_token, user_id, data):
-    tasks = load_tasks()
-
-    _, _, c_idx, i_idx = data.split("_")
-    c_idx = int(c_idx)
-    i_idx = int(i_idx)
-
-    checklist = tasks["checklists"][user_id][c_idx]
-    item = checklist["items"][i_idx]
-
-    # 状態反転
-    item["done"] = not item["done"]
-
-    save_tasks(tasks)
-
-    # 再表示
-    handle_list_check(reply_token, user_id)
-    
 def handle_show_done(reply_token, user_id, source_type, group_id=None):
     tasks = load_tasks()
 
@@ -539,7 +521,7 @@ def handle_show_done(reply_token, user_id, source_type, group_id=None):
 
     send_done_schedule(reply_token, personal_done, group_done)
 
-def handle_undo(reply_token, user_id, data, group_id=None):
+def handle_undo(reply_token, user_id, data, group_id):
     tasks = load_tasks()
 
     _, _, scope, idx = data.split("_")
@@ -561,6 +543,12 @@ def handle_undo(reply_token, user_id, data, group_id=None):
 
 def handle_list_check(reply_token, user_id, opened=-1):
     tasks = load_tasks()
+
+    # ✅ ここでモード（settings）を読む
+    ui = get_check_ui_flags(tasks, user_id)
+    show_delete = ui.get("show_delete", False)
+    show_reorder = ui.get("show_reorder", False)
+
     checklists = tasks.get("checklists", {}).get(user_id, [])
 
     try:
@@ -590,33 +578,48 @@ def handle_list_check(reply_token, user_id, opened=-1):
 
             contents = []
 
+            # =========================
             # タイトル行（開閉 + ゴミ箱）
-            contents.append({
-                "type": "box",
-                "layout": "horizontal",
-                "contents": [
-                    {
-                        "type": "button",
-                        "flex": 4,
-                        "style": "primary",
-                        "action": {
-                            "type": "postback",
-                            "label": f"{arrow} {checklist.get('title','(no title)')}",
-                            "data": f"#toggle_list_{c_idx}_{opened}"
+            # show_delete が OFF の時はゴミ箱を描画しない
+            # =========================
+            if show_delete:
+                contents.append({
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "button",
+                            "flex": 4,
+                            "style": "primary",
+                            "action": {
+                                "type": "postback",
+                                "label": f"{arrow} {checklist.get('title','(no title)')}",
+                                "data": f"#toggle_list_{c_idx}_{opened}"
+                            }
+                        },
+                        {
+                            "type": "button",
+                            "flex": 1,
+                            "style": "secondary",
+                            "action": {
+                                "type": "postback",
+                                "label": "🗑",
+                                "data": f"#delete_check_{c_idx}_{opened}"
+                            }
                         }
-                    },
-                    {
-                        "type": "button",
-                        "flex": 1,
-                        "style": "secondary",
-                        "action": {
-                            "type": "postback",
-                            "label": "🗑",
-                            "data": f"#delete_check_{c_idx}_{opened}"
-                        }
+                    ]
+                })
+            else:
+                # ゴミ箱を出さない代わりに、開閉ボタンを横いっぱいに
+                contents.append({
+                    "type": "button",
+                    "style": "primary",
+                    "action": {
+                        "type": "postback",
+                        "label": f"{arrow} {checklist.get('title','(no title)')}",
+                        "data": f"#toggle_list_{c_idx}_{opened}"
                     }
-                ]
-            })
+                })
 
             # 進捗
             contents.append({
@@ -641,78 +644,84 @@ def handle_list_check(reply_token, user_id, opened=-1):
                         mark = "☑" if item.get("done") else "⬜"
                         text = item.get("text", "")
 
-                        # 1行：チェック切替 + 削除 + 並び替え（↑↓）
+                        row_contents = [
+                            {
+                                "type": "button",
+                                "flex": 5 if show_delete else 6,
+                                "style": "secondary",
+                                "action": {
+                                    "type": "postback",
+                                    "label": f"{mark} {text}",
+                                    "data": f"#toggle_check_{c_idx}_{i_idx}_{opened}"
+                                }
+                            }
+                        ]
+
+                        # ✅ 削除モードONの時だけ、項目削除ボタンを出す
+                        if show_delete:
+                            row_contents.append({
+                                "type": "button",
+                                "flex": 1,
+                                "style": "secondary",
+                                "action": {
+                                    "type": "postback",
+                                    "label": "🗑",
+                                    "data": f"#delete_item_{c_idx}_{i_idx}_{opened}"
+                                }
+                            })
+
                         contents.append({
                             "type": "box",
                             "layout": "horizontal",
                             "margin": "sm",
-                            "contents": [
-                                {
-                                    "type": "button",
-                                    "flex": 5,
-                                    "style": "secondary",
-                                    "action": {
-                                        "type": "postback",
-                                        "label": f"{mark} {text}",
-                                        "data": f"#toggle_check_{c_idx}_{i_idx}_{opened}"
-                                    }
-                                },
-                                {
-                                    "type": "button",
-                                    "flex": 1,
-                                    "style": "secondary",
-                                    "action": {
-                                        "type": "postback",
-                                        "label": "🗑",
-                                        "data": f"#delete_item_{c_idx}_{i_idx}_{opened}"
-                                    }
-                                }
-                            ]
+                            "contents": row_contents
                         })
 
-                        # 並び替えボタン（上下）
-                        contents.append({
-                            "type": "box",
-                            "layout": "horizontal",
-                            "spacing": "sm",
-                            "margin": "xs",
-                            "contents": [
-                                {
-                                    "type": "button",
-                                    "flex": 1,
-                                    "style": "secondary",
-                                    "height": "sm",
-                                    "action": {
-                                        "type": "postback",
-                                        "label": "↑",
-                                        "data": f"#move_item_{c_idx}_{i_idx}_up_{opened}"
+                        # ✅ 並び替えモードONの時だけ、↑↓を出す
+                        if show_reorder:
+                            contents.append({
+                                "type": "box",
+                                "layout": "horizontal",
+                                "spacing": "sm",
+                                "margin": "xs",
+                                "contents": [
+                                    {
+                                        "type": "button",
+                                        "flex": 1,
+                                        "style": "secondary",
+                                        "height": "sm",
+                                        "action": {
+                                            "type": "postback",
+                                            "label": "↑",
+                                            "data": f"#move_item_{c_idx}_{i_idx}_up_{opened}"
+                                        }
+                                    },
+                                    {
+                                        "type": "button",
+                                        "flex": 1,
+                                        "style": "secondary",
+                                        "height": "sm",
+                                        "action": {
+                                            "type": "postback",
+                                            "label": "↓",
+                                            "data": f"#move_item_{c_idx}_{i_idx}_down_{opened}"
+                                        }
                                     }
-                                },
-                                {
-                                    "type": "button",
-                                    "flex": 1,
-                                    "style": "secondary",
-                                    "height": "sm",
-                                    "action": {
-                                        "type": "postback",
-                                        "label": "↓",
-                                        "data": f"#move_item_{c_idx}_{i_idx}_down_{opened}"
-                                    }
-                                }
-                            ]
-                        })
+                                ]
+                            })
 
-                # リスト丸ごと削除（下にも置く）
-                contents.append({
-                    "type": "button",
-                    "style": "secondary",
-                    "margin": "lg",
-                    "action": {
-                        "type": "postback",
-                        "label": "🗑 このリストを削除",
-                        "data": f"#delete_check_{c_idx}_{opened}"
-                    }
-                })
+                # ✅ リスト丸ごと削除は削除モードONの時だけ
+                if show_delete:
+                    contents.append({
+                        "type": "button",
+                        "style": "secondary",
+                        "margin": "lg",
+                        "action": {
+                            "type": "postback",
+                            "label": "🗑 このリストを削除",
+                            "data": f"#delete_check_{c_idx}_{opened}"
+                        }
+                    })
             else:
                 contents.append({
                     "type": "text",
@@ -735,6 +744,7 @@ def handle_list_check(reply_token, user_id, opened=-1):
             "contents": bubbles[:10]
         }
     }
+
     send_flex(reply_token, flex)
 
 
