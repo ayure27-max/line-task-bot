@@ -4,6 +4,7 @@ import os
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
+import traceback
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -55,6 +56,16 @@ def db_connect():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL が未設定です（Renderの環境変数に入れてね）")
     return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+def init_db():
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS kv_store (
+                    k TEXT PRIMARY KEY,
+                    v JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+            """)
 
 def load_tasks():
     if not ensure_db_ready():
@@ -1083,6 +1094,7 @@ def webhook():
         except Exception as e:
             # ここが「DB不調でも無反応にしない」保険
             print("❌ webhook handler error:", repr(e))
+            print(traceback.format_exc())
             if reply_token:
                 send_reply(
                     reply_token,
