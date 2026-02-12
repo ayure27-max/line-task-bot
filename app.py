@@ -10,15 +10,40 @@ print("TOKEN EXISTS:", bool(LINE_CHANNEL_ACCESS_TOKEN))
 
 user_states = {}
 DATA_FILE = "tasks.json"
+import psycopg
+from psycopg.rows import dict_row
+
+DEFAULT_TASKS = {"users": {}, "groups": {}, "checklists": {}, "settings": {}}
+
+def db_connect():
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise RuntimeError("DATABASE_URL が未設定です（Renderの環境変数に入れてね）")
+    return psycopg.connect(db_url, row_factory=dict_row)
+
+def init_db():
+    """初回だけテーブルを作る（毎回呼んでもOK）"""
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS kv_store (
+                    k TEXT PRIMARY KEY,
+                    v JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+            """)
 
 def load_tasks():
-    if not os.path.exists(DATA_FILE):
-        return {"users": {}, "groups": {}, "checklists": {}}
+    init_db()
 
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT v FROM kv_store WHERE k = %s;", ("tasks",))
+            row = cur.fetchone()
 
-    # 安全補完
+    data = row["v"] if row else DEFAULT_TASKS.copy()
+
+    # 安全補完（あなたの今の流儀のまま）
     data.setdefault("users", {})
     data.setdefault("groups", {})
     data.setdefault("checklists", {})
@@ -27,8 +52,16 @@ def load_tasks():
     return data
 
 def save_tasks(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    init_db()
+
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO kv_store (k, v)
+                VALUES (%s, %s)
+                ON CONFLICT (k)
+                DO UPDATE SET v = EXCLUDED.v, updated_at = now();
+            """, ("tasks", json.dumps(data, ensure_ascii=False)))
     
 def send_reply(reply_token, text):
     url = "https://api.line.me/v2/bot/message/reply"
