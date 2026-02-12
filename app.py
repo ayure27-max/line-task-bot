@@ -60,6 +60,7 @@ DEFAULT_TASKS = {
     "spaces": {},           # space_id -> {name, pass, created_by}
     "memberships": {},      # user_id -> [space_id...]
     "active_space": {}      # user_id -> space_id
+    "space_tasks": {}   # space_id -> [ {text, done_by: []}, ... ]
 }
 
 def db_connect():
@@ -97,6 +98,7 @@ def load_tasks():
     data.setdefault("spaces", {})
     data.setdefault("memberships", {})
     data.setdefault("active_space", {})
+    data.setdefault("space_tasks", {})
     return data
 
 def save_tasks(data):
@@ -217,8 +219,8 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
             body.append(
                 task_row(
                     task["text"],
-                    f"#list_done_g_{i}",
-                    f"#list_delete_g_{i}",
+                    f"#space_done_{i}",
+                    f"#space_delete_{i}"
                 )
             )
     else:
@@ -564,6 +566,17 @@ def join_space(tasks, user_id: str, space_id: str):
         tasks["memberships"][user_id].append(space_id)
 
     tasks["active_space"][user_id] = space_id
+
+def get_active_space_id(tasks, user_id: str):
+    return tasks.get("active_space", {}).get(user_id)
+
+def get_space_global_tasks(tasks, user_id: str):
+    sid = get_active_space_id(tasks, user_id)
+    if not sid:
+        return [], None  # 未参加
+    tasks.setdefault("space_tasks", {})
+    tasks["space_tasks"].setdefault(sid, [])
+    return tasks["space_tasks"][sid], sid
     
 def _get_board_list(tasks, source_type, user_id, group_id):
     if source_type == "group" and group_id:
@@ -659,6 +672,21 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         save_tasks(tasks)
         user_states.pop(user_id, None)
         send_reply(reply_token, f"📌 {BOARD_TITLE}に入れたよ")
+        return
+        
+    if state == "space_add_global":
+        tasks = load_tasks()
+        
+        global_list, sid = get_space_global_tasks(tasks, user_id)
+        if not sid:
+            send_reply(reply_token, "まだ集会所に参加してないみたい。先に「合言葉で集会所に参加」を押してね")
+            return
+            
+        tasks["space_tasks"][sid].append({"text": text, "done_by": []})
+        save_tasks(tasks)
+        
+        user_states.pop(user_id, None)
+        send_reply(reply_token, "🌍 全体予定を追加したよ")
         return
     
     # チェックリストタイトル入力
@@ -843,6 +871,45 @@ def handle_delete(reply_token, user_id, data, source_type, group_id=None):
             if user_id not in t.get("done_by", [])
         ]
 
+    send_schedule(reply_token, personal, global_tasks)
+    
+def handle_space_done(reply_token, user_id, data):
+    idx = int(data.split("_")[-1])
+    tasks = load_tasks()
+
+    items, sid = get_space_global_tasks(tasks, user_id)
+    if not sid:
+        send_reply(reply_token, "集会所が未選択だよ")
+        return
+
+    if 0 <= idx < len(items):
+        items[idx].setdefault("done_by", [])
+        if user_id not in items[idx]["done_by"]:
+            items[idx]["done_by"].append(user_id)
+
+    save_tasks(tasks)
+
+    # 再表示（個人 + 集会所）
+    personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+    global_tasks, _ = get_space_global_tasks(tasks, user_id)
+    send_schedule(reply_token, personal, global_tasks)
+
+def handle_space_delete(reply_token, user_id, data):
+    idx = int(data.split("_")[-1])
+    tasks = load_tasks()
+
+    items, sid = get_space_global_tasks(tasks, user_id)
+    if not sid:
+        send_reply(reply_token, "集会所が未選択だよ")
+        return
+
+    if 0 <= idx < len(items):
+        items.pop(idx)
+
+    save_tasks(tasks)
+
+    personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+    global_tasks, _ = get_space_global_tasks(tasks, user_id)
     send_schedule(reply_token, personal, global_tasks)
 
 def handle_undo(reply_token, user_id, data, group_id):
@@ -1255,7 +1322,8 @@ def webhook():
                             if user_id not in t.get("done_by", [])
                         ]
 
-                    send_schedule(reply_token, personal, group_tasks)
+                    global_tasks, sid = get_space_global_tasks(tasks, user_id)
+                    send_schedule(reply_token, personal, global_tasks)
 
                 # --- リッチメニュー：チェックリスト一覧 ---
                 elif data == "scope=menu&action=check":
@@ -1326,14 +1394,14 @@ def webhook():
                     handle_board_move(reply_token, user_id, data, source_type, group_id)
 
                 # ====== 予定（schedule）系 ======
-                elif data.startswith("#list_done_"):
-                    handle_done(reply_token, user_id, data, source_type, group_id)
-
+                elif data.startswith("#space_done_"):
+                    handle_space_done(reply_token, user_id, data)
+                    
+                elif data.startswith("#space_delete_"):
+                    handle_space_delete(reply_token, user_id, data)
+                    
                 elif data.startswith("#list_undo_"):
                     handle_undo(reply_token, user_id, data, group_id)
-
-                elif data.startswith("#list_delete_"):
-                    handle_delete(reply_token, user_id, data, source_type, group_id)
 
                 elif data == "#show_done":
                     handle_show_done(reply_token, user_id, source_type, group_id)
@@ -1341,13 +1409,10 @@ def webhook():
                 elif data == "#add_personal":
                     user_states[user_id] = "add_personal"
                     send_reply(reply_token, "追加する予定を送ってね")
-
-                elif data == "#add_global":
-                    if source_type == "group" and group_id:
-                        user_states[user_id] = f"add_global_{group_id}"
-                        send_reply(reply_token, "🌍 全体予定を書いてね")
-                    else:
-                        send_reply(reply_token, "🌍 全体予定はグループでのみ使えます")
+                    
+                elif data == "#other_add_global":
+                    user_states[user_id] = "space_add_global"
+                    send_reply(reply_token, "🌍 全体予定（集会所共通）を送ってね")
 
                 # ====== チェックリスト作成 ======
                 elif data == "#add_check":
