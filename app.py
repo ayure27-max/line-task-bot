@@ -534,53 +534,59 @@ def handle_list_check(reply_token, user_id):
     contents = []
 
     for c_idx, checklist in enumerate(checklists):
+
+        # タイトル
         contents.append({
             "type": "text",
             "text": f"📋 {checklist['title']}",
             "weight": "bold",
             "margin": "lg"
         })
-        contents.append({
-            "type": "box",
-            "layout": "horizontal",
-            "margin": "sm",
-            "contents": [
-                {
-                    "type": "button",
-                    "flex": 3,
-                    "style": "secondary",
-                    "action": {
-                        "type": "postback",
-                        "label": f"{status} {item['text']}",
-                        "data": f"#toggle_check_{c_idx}_{i_idx}"
-                    }
-                },
-                {
-                    "type": "button",
-                    "flex": 1,
-                    "style": "secondary",
-                    "action": {
-                        "type": "postback",
-                        "label": "🗑",
-                        "data": f"#delete_item_{c_idx}_{i_idx}"
-                    }
-                }
-            ]
-        })
 
+        # 各アイテム
         for i_idx, item in enumerate(checklist["items"]):
+
             mark = "☑" if item["done"] else "⬜"
 
             contents.append({
-                "type": "button",
-                "style": "secondary",
+                "type": "box",
+                "layout": "horizontal",
                 "margin": "sm",
-                "action": {
-                    "type": "postback",
-                    "label": f"{mark} {item['text']}",
-                    "data": f"#toggle_check_{c_idx}_{i_idx}"
-                }
+                "contents": [
+                    {
+                        "type": "button",
+                        "flex": 4,
+                        "style": "secondary",
+                        "action": {
+                            "type": "postback",
+                            "label": f"{mark} {item['text']}",
+                            "data": f"#toggle_check_{c_idx}_{i_idx}"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "flex": 1,
+                        "style": "secondary",
+                        "action": {
+                            "type": "postback",
+                            "label": "🗑",
+                            "data": f"#delete_item_{c_idx}_{i_idx}"
+                        }
+                    }
+                ]
             })
+
+        # チェックリスト削除ボタン（任意）
+        contents.append({
+            "type": "button",
+            "style": "secondary",
+            "margin": "md",
+            "action": {
+                "type": "postback",
+                "label": "🗑 このチェックリストを削除",
+                "data": f"#delete_check_{c_idx}"
+            }
+        })
 
     if not contents:
         contents.append({
