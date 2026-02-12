@@ -1,6 +1,28 @@
 from flask import Flask, request
 import requests
 import os
+import psycopg2
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def db_ping():
+    """Neonに接続できるかだけ確認する（成功ならTrue）"""
+    if not DATABASE_URL:
+        print("❌ DATABASE_URL is missing")
+        return False
+
+    try:
+        conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
+        cur = conn.cursor()
+        cur.execute("SELECT 1;")
+        cur.fetchone()
+        cur.close()
+        conn.close()
+        print("✅ DB connected (SELECT 1 OK)")
+        return True
+    except Exception as e:
+        print("❌ DB connection failed:", e)
+        return False
 import json
 
 app = Flask(__name__)
