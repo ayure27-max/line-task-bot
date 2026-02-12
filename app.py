@@ -1,23 +1,21 @@
 from flask import Flask, request
 import requests
 import os
-import psycopg2
+import psycopg
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def db_ping():
-    """Neonに接続できるかだけ確認する（成功ならTrue）"""
     if not DATABASE_URL:
         print("❌ DATABASE_URL is missing")
         return False
-
     try:
-        conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
-        cur = conn.cursor()
-        cur.execute("SELECT 1;")
-        cur.fetchone()
-        cur.close()
-        conn.close()
+        with psycopg.connect(DATABASE_URL) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1;")
+                cur.fetchone()
         print("✅ DB connected (SELECT 1 OK)")
         return True
     except Exception as e:
@@ -44,7 +42,6 @@ def db_connect():
     return psycopg.connect(db_url, row_factory=dict_row)
 
 def init_db():
-    """初回だけテーブルを作る（毎回呼んでもOK）"""
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -57,25 +54,20 @@ def init_db():
 
 def load_tasks():
     init_db()
-
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT v FROM kv_store WHERE k = %s;", ("tasks",))
             row = cur.fetchone()
 
     data = row["v"] if row else DEFAULT_TASKS.copy()
-
-    # 安全補完（あなたの今の流儀のまま）
     data.setdefault("users", {})
     data.setdefault("groups", {})
     data.setdefault("checklists", {})
     data.setdefault("settings", {})
-
     return data
 
 def save_tasks(data):
     init_db()
-
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -83,7 +75,19 @@ def save_tasks(data):
                 VALUES (%s, %s)
                 ON CONFLICT (k)
                 DO UPDATE SET v = EXCLUDED.v, updated_at = now();
-            """, ("tasks", json.dumps(data, ensure_ascii=False)))
+            """, ("tasks", Jsonb(data)))
+
+def db_ping():
+    try:
+        with db_connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1;")
+                cur.fetchone()
+        print("✅ DB connected (SELECT 1 OK)")
+        return True
+    except Exception as e:
+        print("❌ DB connection failed:", e)
+        return False
     
 def send_reply(reply_token, text):
     url = "https://api.line.me/v2/bot/message/reply"
