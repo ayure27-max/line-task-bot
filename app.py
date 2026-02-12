@@ -890,7 +890,7 @@ def handle_delete(reply_token, user_id, data, source_type, group_id=None):
             tasks.setdefault("space_tasks", {})
             items = tasks["space_tasks"].setdefault(sid, [])
             if 0 <= idx < len(items):
-                items.pop(idx
+                items.pop(idx)
     save_tasks(tasks)
 
     # 削除後の最新状態で再表示（done は除外）
