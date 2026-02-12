@@ -469,6 +469,21 @@ def handle_toggle_check(reply_token, user_id, data):
     # 再表示
     handle_list_check(reply_token, user_id)
     
+def handle_delete_check(reply_token, user_id, data):
+    tasks = load_tasks()
+
+    _, _, c_idx = data.split("_")
+    c_idx = int(c_idx)
+
+    if user_id in tasks.get("checklists", {}):
+        if c_idx < len(tasks["checklists"][user_id]):
+            tasks["checklists"][user_id].pop(c_idx)
+
+    save_tasks(tasks)
+
+    # 再表示
+    handle_list_check(reply_token, user_id)
+    
 def handle_show_done(reply_token, user_id, source_type, group_id=None):
     tasks = load_tasks()
 
@@ -524,6 +539,16 @@ def handle_list_check(reply_token, user_id):
             "text": f"📋 {checklist['title']}",
             "weight": "bold",
             "margin": "lg"
+        })
+        contents.append({
+            "type": "button",
+            "style": "secondary",
+            "margin": "sm",
+            "action": {
+                "type": "postback",
+                "label": "🗑 このチェックリストを削除",
+                "data": f"#delete_check_{c_idx}"
+            }
         })
 
         for i_idx, item in enumerate(checklist["items"]):
@@ -686,6 +711,9 @@ def webhook():
             
             elif data.startswith("#toggle_check_"):
                 handle_toggle_check(reply_token, user_id, data)
+                
+            elif data.startswith("#delete_check_"):
+                handle_delete_check(reply_token, user_id, data)
 
             # その他
             else:
