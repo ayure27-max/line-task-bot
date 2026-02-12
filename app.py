@@ -557,10 +557,27 @@ def handle_list_check(reply_token, user_id):
 
             # タイトル
             contents.append({
-                "type": "text",
-                "text": f"📋 {checklist['title']}",
-                "weight": "bold",
-                "size": "lg"
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": f"📋 {checklist['title']}",
+                        "weight": "bold",
+                        "size": "lg",
+                        "flex": 4
+                    },
+                    {
+                        "type": "button",
+                        "flex": 1,
+                        "style": "secondary",
+                        "action": {
+                            "type": "postback",
+                            "label": "🗑",
+                            "data": f"#delete_check_{c_idx}"
+                        }
+                    }
+                ]
             })
 
             total = len(checklist["items"])
@@ -774,7 +791,16 @@ def webhook():
                 handle_toggle_check(reply_token, user_id, data)
                 
             elif data.startswith("#delete_check_"):
-                handle_delete_check(reply_token, user_id, data)
+                index = int(data.replace("#delete_check_", ""))
+                
+                tasks = load_tasks()
+                
+                if user_id in tasks.get("checklists", {}):
+                    if 0 <= index < len(tasks["checklists"][user_id]):
+                        tasks["checklists"][user_id].pop(index)
+                        save_tasks(tasks)
+                        
+                    handle_list_check(reply_token, user_id)
                 
             elif data.startswith("#delete_item_"):
                 handle_delete_item(reply_token, user_id, data)
