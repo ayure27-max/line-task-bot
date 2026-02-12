@@ -809,7 +809,7 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
         tasks.setdefault("groups", {})
         tasks["groups"].setdefault(group_id, [])
         
-     elif scope == "s":
+    elif scope == "s":
         sid = get_active_space_id(tasks, user_id)
         if sid:
             tasks.setdefault("space_tasks", {})
