@@ -971,120 +971,123 @@ def toggle_check_ui_flag(tasks, user_id, flag_key):
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    body = request.get_json()
+    body = request.get_json(silent=True) or {}
     print("=== HIT ===")
-    print(body)
 
     for event in body.get("events", []):
-        source = event["source"]
-        source_type = source["type"]
-        user_id = source["userId"]
+        reply_token = event.get("replyToken")
 
-        group_id = None
-        if source_type == "group":
-            group_id = source["groupId"]
-            
-        # ===== POSTBACK =====
-        if event["type"] == "postback":
-            data = event["postback"]["data"]
-            reply_token = event["replyToken"]
-            
-            # --- リッチメニュー：予定表 ---
-            if data == "scope=menu&action=list":
-                tasks = load_tasks()
-                personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-                
-                group_tasks = []
-                if source_type == "group":
-                    tasks.setdefault("groups", {})
-                    tasks["groups"].setdefault(group_id, [])
-                    group_tasks = [
-                        t for t in tasks["groups"][group_id]
-                        if user_id not in t.get("done_by", [])
-                    ]
-                
-                send_schedule(reply_token, personal, group_tasks)
-            
-            # --- リッチメニュー：チェックリスト一覧 ---
-            elif data == "scope=menu&action=check":
-                handle_list_check(reply_token, user_id, -1)
-                
-            elif data.startswith("#toggle_list_"):
-                handle_toggle_list(reply_token, user_id, data)
-                
-            elif data.startswith("#toggle_check_"):
-                handle_toggle_check(reply_token, user_id, data)
-                
-            elif data.startswith("#delete_item_"):
-                handle_delete_item(reply_token, user_id, data)
-                
-            elif data.startswith("#delete_check_"):
-                handle_delete_check(reply_token, user_id, data)
-            
-            elif data.startswith("#move_item_"):
-                handle_move_item(reply_token, user_id, data)
-        
-            # --- リッチメニュー：追加（グループで個人予定をpushする特例）---
-            elif data == "scope=menu&action=add" and source_type == "group":
-                push_message = {"type": "text", "text": "📅 個人予定を追加するよ。予定を書いてね。"}
-                user_states[user_id] = "add_personal"
-                send_push(user_id, push_message)
-                print("POSTBACK:", data)
-            
-            # --- 通常：追加メニューを表示 ---
-            elif data == "scope=menu&action=add":
-                handle_menu_add(reply_token, user_id)
-            
-            # ====== 予定（schedule）系 ======
-            elif data.startswith("#list_done_"):
-                handle_done(reply_token, user_id, data, source_type, group_id)
-            
-            elif data.startswith("#list_undo_"):
-                handle_undo(reply_token, user_id, data, group_id)
-        
-            elif data.startswith("#list_delete_"):
-                handle_delete(reply_token, user_id, data, source_type, group_id)
-            
-            elif data == "#show_done":
-                handle_show_done(reply_token, user_id, source_type, group_id)
-            
-            elif data == "#add_personal":
-                user_states[user_id] = "add_personal"
-                send_reply(reply_token, "追加する予定を送ってね")
-            
-            elif data == "#add_global":
-                if source_type == "group":
-                    user_states[user_id] = f"add_global_{group_id}"
-                    send_reply(reply_token, "🌍 全体予定を書いてね")
+        try:
+            source = event.get("source", {})
+            source_type = source.get("type")
+            user_id = source.get("userId")
+            group_id = source.get("groupId") if source_type == "group" else None
+
+            if event.get("type") == "postback":
+                data = event.get("postback", {}).get("data", "")
+
+                # --- リッチメニュー：予定表 ---
+                if data == "scope=menu&action=list":
+                    tasks = load_tasks()
+                    personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+
+                    group_tasks = []
+                    if source_type == "group":
+                        tasks.setdefault("groups", {})
+                        tasks["groups"].setdefault(group_id, [])
+                        group_tasks = [
+                            t for t in tasks["groups"][group_id]
+                            if user_id not in t.get("done_by", [])
+                        ]
+
+                    send_schedule(reply_token, personal, group_tasks)
+
+                # --- リッチメニュー：チェックリスト一覧 ---
+                elif data == "scope=menu&action=check":
+                    handle_list_check(reply_token, user_id, -1)
+
+                elif data.startswith("#toggle_list_"):
+                    handle_toggle_list(reply_token, user_id, data)
+
+                elif data.startswith("#toggle_check_"):
+                    handle_toggle_check(reply_token, user_id, data)
+
+                elif data.startswith("#delete_item_"):
+                    handle_delete_item(reply_token, user_id, data)
+
+                elif data.startswith("#delete_check_"):
+                    handle_delete_check(reply_token, user_id, data)
+
+                elif data.startswith("#move_item_"):
+                    handle_move_item(reply_token, user_id, data)
+
+                # --- リッチメニュー：追加（グループで個人予定をpushする特例）---
+                elif data == "scope=menu&action=add" and source_type == "group":
+                    push_message = {"type": "text", "text": "📅 個人予定を追加するよ。予定を書いてね。"}
+                    user_states[user_id] = "add_personal"
+                    send_push(user_id, push_message)
+
+                # --- 通常：追加メニューを表示 ---
+                elif data == "scope=menu&action=add":
+                    handle_menu_add(reply_token, user_id)
+
+                # ====== 予定（schedule）系 ======
+                elif data.startswith("#list_done_"):
+                    handle_done(reply_token, user_id, data, source_type, group_id)
+
+                elif data.startswith("#list_undo_"):
+                    handle_undo(reply_token, user_id, data, group_id)
+
+                elif data.startswith("#list_delete_"):
+                    handle_delete(reply_token, user_id, data, source_type, group_id)
+
+                elif data == "#show_done":
+                    handle_show_done(reply_token, user_id, source_type, group_id)
+
+                elif data == "#add_personal":
+                    user_states[user_id] = "add_personal"
+                    send_reply(reply_token, "追加する予定を送ってね")
+
+                elif data == "#add_global":
+                    if source_type == "group":
+                        user_states[user_id] = f"add_global_{group_id}"
+                        send_reply(reply_token, "🌍 全体予定を書いてね")
+                    else:
+                        send_reply(reply_token, "🌍 全体予定はグループでのみ使えます")
+
+                # ====== チェックリスト作成 ======
+                elif data == "#add_check":
+                    user_states[user_id] = "add_check_title"
+                    send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
+
+                # ====== モード切替 ======
+                elif data == "#toggle_delete_mode":
+                    tasks = load_tasks()
+                    toggle_check_ui_flag(tasks, user_id, "show_delete")
+                    save_tasks(tasks)
+                    handle_menu_add(reply_token, user_id)
+
+                elif data == "#toggle_reorder_mode":
+                    tasks = load_tasks()
+                    toggle_check_ui_flag(tasks, user_id, "show_reorder")
+                    save_tasks(tasks)
+                    handle_menu_add(reply_token, user_id)
+
                 else:
-                    send_reply(reply_token, "🌍 全体予定はグループでのみ使えます")
-                
-            # ====== チェックリスト系（ここが統一ポイント） ======
-            elif data == "#add_check":
-                 user_states[user_id] = "add_check_title"
-                 send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
-                
-            elif data == "#toggle_delete_mode":
-                tasks = load_tasks()
-                new_state = toggle_check_ui_flag(tasks, user_id, "show_delete")
-                save_tasks(tasks)
-                # 状態が変わったので、追加メニューを描き直してラベル更新
-                handle_menu_add(reply_token, user_id)
-                
-            elif data == "#toggle_reorder_mode":
-                tasks = load_tasks()
-                new_state = toggle_check_ui_flag(tasks, user_id, "show_reorder")
-                save_tasks(tasks)
-                handle_menu_add(reply_token, user_id)
-            # その他
-        
-            else:
-                send_reply(reply_token, "未定義メニュー")
-        # ===== MESSAGE =====
-        elif event["type"] == "message":
-            reply_token = event["replyToken"]
-            text = event["message"]["text"]
-            handle_message(reply_token, user_id, text, source_type, group_id)
+                    send_reply(reply_token, "未定義メニュー")
+
+            elif event.get("type") == "message":
+                text = event.get("message", {}).get("text", "")
+                handle_message(reply_token, user_id, text, source_type, group_id)
+
+        except Exception as e:
+            # ここが「DB不調でも無反応にしない」保険
+            print("❌ webhook handler error:", repr(e))
+            if reply_token:
+                send_reply(
+                    reply_token,
+                    "⚠️ いま保存先（DB）が一時的に不調みたい。\n少し待ってからもう一度操作してね。"
+                )
 
     return "OK", 200
 
