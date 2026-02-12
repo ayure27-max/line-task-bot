@@ -470,29 +470,6 @@ def handle_toggle_check(reply_token, user_id, data):
     # 再表示
     handle_list_check(reply_token, user_id)
     
-def handle_delete_check(reply_token, user_id, data):
-    tasks = load_tasks()
-
-    _, _, c_idx = data.split("_")
-    c_idx = int(c_idx)
-
-    if user_id in tasks.get("checklists", {}):
-        if c_idx < len(tasks["checklists"][user_id]):
-            tasks["checklists"][user_id].pop(c_idx)
-
-    save_tasks(tasks)
-    
-        # openedの補正（削除でindexがズレるのを防ぐ）
-    opened = checklist_view_state.get(user_id)
-    if opened is not None:
-        if opened == c_idx:
-            checklist_view_state[user_id] = None
-        elif opened > c_idx:
-            checklist_view_state[user_id] = opened - 1
-
-    # 再表示
-    handle_list_check(reply_token, user_id)
-    
 def handle_show_done(reply_token, user_id, source_type, group_id=None):
     tasks = load_tasks()
 
@@ -691,6 +668,43 @@ def handle_list_check(reply_token, user_id):
     }
 
     send_flex(reply_token, flex)
+    
+def handle_toggle_list(reply_token, user_id, data):
+    # data: #toggle_list_{c_idx}
+    _, _, c_idx = data.split("_")
+    c_idx = int(c_idx)
+
+    current = checklist_view_state.get(user_id)  # None or int
+    checklist_view_state[user_id] = None if current == c_idx else c_idx
+
+    handle_list_check(reply_token, user_id)
+    
+def handle_move_item(reply_token, user_id, data):
+    # data: #move_item_{c_idx}_{i_idx}_{dir}
+    tasks = load_tasks()
+
+    _, _, c_idx, i_idx, direction = data.split("_")
+    c_idx = int(c_idx)
+    i_idx = int(i_idx)
+
+    checklists = tasks.get("checklists", {}).get(user_id, [])
+    if not (0 <= c_idx < len(checklists)):
+        return
+
+    items = checklists[c_idx].get("items", [])
+    if not (0 <= i_idx < len(items)):
+        return
+
+    if direction == "up" and i_idx > 0:
+        items[i_idx - 1], items[i_idx] = items[i_idx], items[i_idx - 1]
+    elif direction == "down" and i_idx < len(items) - 1:
+        items[i_idx + 1], items[i_idx] = items[i_idx], items[i_idx + 1]
+
+    save_tasks(tasks)
+
+    # 並び替え後もそのリストを開いたままにする
+    checklist_view_state[user_id] = c_idx
+    handle_list_check(reply_token, user_id)
 
 def handle_delete(reply_token, user_id, data, source_type, group_id=None):
     tasks = load_tasks()
@@ -737,8 +751,9 @@ def handle_delete_item(reply_token, user_id, data):
                 items.pop(i_idx)
 
     save_tasks(tasks)
-
-    # 再表示
+    
+    # 削除後もそのリストを開いたままにする
+    checklist_view_state[user_id] = c_idx
     handle_list_check(reply_token, user_id)
     
 def handle_toggle_list(reply_token, user_id, data):
@@ -770,62 +785,58 @@ def webhook():
         group_id = None
         if source_type == "group":
             group_id = source["groupId"]
-
+            
         # ===== POSTBACK =====
         if event["type"] == "postback":
             data = event["postback"]["data"]
             reply_token = event["replyToken"]
             
-            # グループ内で個人追加が押された場合
-            if data == "scope=menu&action=add" and source_type == "group":
-                
-                push_message = {
-                "type": "text",
-                    "text": "📅 個人予定を追加するよ。予定を書いてね。"
-                    }
-                
-                user_states[user_id] = "add_personal"
-                
-                send_push(user_id, push_message)
-                
-                # グループには何も返さない
-                print("POSTBACK:", data)
-
-            # 予定表
-            elif data == "scope=menu&action=list":
+            # --- リッチメニュー：予定表 ---
+            if data == "scope=menu&action=list":
                 tasks = load_tasks()
-
                 personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
                 
-                 # グループ予定
                 group_tasks = []
-                
                 if source_type == "group":
                     tasks.setdefault("groups", {})
                     tasks["groups"].setdefault(group_id, [])
-                    
                     group_tasks = [
                         t for t in tasks["groups"][group_id]
                         if user_id not in t.get("done_by", [])
-                        ]
-                    
-                send_schedule(reply_token, personal, group_tasks)
+                    ]
                 
-            # チェックリスト一覧（リッチメニュー）
+                send_schedule(reply_token, personal, group_tasks)
+            
+            # --- リッチメニュー：チェックリスト一覧 ---
             elif data == "scope=menu&action=check":
                 handle_list_check(reply_token, user_id)
-
-            # 完了処理
+        
+            # --- リッチメニュー：追加（グループで個人予定をpushする特例）---
+            elif data == "scope=menu&action=add" and source_type == "group":
+                push_message = {"type": "text", "text": "📅 個人予定を追加するよ。予定を書いてね。"}
+                user_states[user_id] = "add_personal"
+                send_push(user_id, push_message)
+                print("POSTBACK:", data)
+            
+            # --- 通常：追加メニューを表示 ---
+            elif data == "scope=menu&action=add":
+                handle_menu_add(reply_token, user_id)
+            
+            # ====== 予定（schedule）系 ======
             elif data.startswith("#list_done_"):
                 handle_done(reply_token, user_id, data, source_type, group_id)
             
             elif data.startswith("#list_undo_"):
+                # もし handle_undo の引数が (reply_token, user_id, data, group_id=None) なら
+                # 下の1行を handle_undo(reply_token, user_id, data, group_id) に変えてOK
                 handle_undo(reply_token, user_id, data, source_type, group_id)
-
-            # 追加
-            elif data == "scope=menu&action=add":
-                handle_menu_add(reply_token, user_id)
-                
+        
+            elif data.startswith("#list_delete_"):
+                handle_delete(reply_token, user_id, data, source_type, group_id)
+            
+            elif data == "#show_done":
+                handle_show_done(reply_token, user_id, source_type, group_id)
+            
             elif data == "#add_personal":
                 user_states[user_id] = "add_personal"
                 send_reply(reply_token, "追加する予定を送ってね")
@@ -834,56 +845,32 @@ def webhook():
                 if source_type == "group":
                     user_states[user_id] = f"add_global_{group_id}"
                     send_reply(reply_token, "🌍 全体予定を書いてね")
-                    
                 else:
                     send_reply(reply_token, "🌍 全体予定はグループでのみ使えます")
                 
-            elif data.startswith("#list_delete_"):
-                handle_delete(reply_token, user_id, data, source_type, group_id)
-                
-            elif data == "#show_done":
-                handle_show_done(reply_token, user_id, source_type, group_id)
-                
+            # ====== チェックリスト系（ここが統一ポイント） ======
             elif data == "#add_check":
-                user_states[user_id] = "add_check_title"
-                send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
+                 user_states[user_id] = "add_check_title"
+                 send_reply(reply_token, "📝 チェックリストのタイトルを送ってね")
+            
+            elif data.startswith("#toggle_list_"):
+                handle_toggle_list(reply_token, user_id, data)
             
             elif data.startswith("#toggle_check_"):
                 handle_toggle_check(reply_token, user_id, data)
-                
-            elif data.startswith("#delete_check_"):
-                index = int(data.replace("#delete_check_", ""))
-                
-                tasks = load_tasks()
-                
-                if user_id in tasks.get("checklists", {}):
-                    if 0 <= index < len(tasks["checklists"][user_id]):
-                        tasks["checklists"][user_id].pop(index)
-                        save_tasks(tasks)
-                        
-                    handle_list_check(reply_token, user_id)
-                
+            
             elif data.startswith("#delete_item_"):
                 handle_delete_item(reply_token, user_id, data)
-                
-            elif data.startswith("#toggle_list_"):
-                _, _, c_idx = data.split("_")
-                c_idx = int(c_idx)
-                
-                current = checklist_view_state.get(user_id)
-                
-                # 同じのを押したら閉じる / 違うのを押したらそれを開く
-                if current == c_idx:
-                    checklist_view_state[user_id] = None
-                else:
-                    checklist_view_state[user_id] = c_idx
-                    
-                handle_list_check(reply_token, user_id)
-
+            
+            elif data.startswith("#delete_check_"):
+                handle_delete_check(reply_token, user_id, data)
+            
+            elif data.startswith("#move_item_"):
+                handle_move_item(reply_token, user_id, data)
             # その他
+        
             else:
                 send_reply(reply_token, "未定義メニュー")
-
         # ===== MESSAGE =====
         elif event["type"] == "message":
             reply_token = event["replyToken"]
