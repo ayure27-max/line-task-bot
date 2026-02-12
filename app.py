@@ -235,7 +235,7 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
         }
     }
 
-def task_row(text, done_data, delete_data=None, label="完了"):
+def task_row(text, done_data, delete_data=None, label="✅"):
     buttons = [
         {
             "type": "button",
@@ -243,7 +243,7 @@ def task_row(text, done_data, delete_data=None, label="完了"):
             "height": "sm",
             "action": {
                 "type": "postback",
-                "label": label,
+                "label": label,   # ← ✅ とか 復帰 とか
                 "data": done_data
             }
         }
@@ -252,15 +252,15 @@ def task_row(text, done_data, delete_data=None, label="完了"):
     if delete_data:
         buttons.append({
             "type": "button",
-            "style": "secondary",
+            "style": "secondary",   # 危険なのでsecondaryのまま
             "height": "sm",
             "action": {
                 "type": "postback",
-                "label": "削除",
+                "label": "🗑",
                 "data": delete_data
             }
         })
-
+        
     return {
         "type": "box",
         "layout": "horizontal",
