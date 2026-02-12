@@ -5,6 +5,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 import traceback
+import re
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -53,6 +54,15 @@ from psycopg.rows import dict_row
 DEFAULT_TASKS = {
     "users": {}, "groups": {}, "checklists": {}, "settings": {},
     "board": {"users": {}, "groups": {}}
+    
+    DEFAULT_TASKS = {
+    "users": {}, "groups": {}, "checklists": {}, "settings": {},
+    "board": {"users": {}, "groups": {}},
+
+    # 👇 追加：集会所（合言葉）システム
+    "spaces": {},            # space_id -> { "name": str, "pass": str, "created_by": str }
+    "memberships": {},       # user_id -> [space_id, ...]
+    "active_space": {}       # user_id -> space_id
 }
 
 def db_connect():
@@ -87,6 +97,9 @@ def load_tasks():
     data.setdefault("board", {"users": {}, "groups": {}})
     data["board"].setdefault("users", {})
     data["board"].setdefault("groups", {})
+    data.setdefault("spaces", {})
+    data.setdefault("memberships", {})
+    data.setdefault("active_space", {})
     return data
 
 def save_tasks(data):
@@ -485,6 +498,9 @@ def handle_other_menu(reply_token, user_id, source_type=None, group_id=None):
 
                     {"type": "button", "style": "primary",
                      "action": {"type": "postback", "label": f"📌 {BOARD_TITLE} ← 一覧", "data": "#board_list"}},
+                    
+                    {"type": "button", "style": "secondary",
+                     "action": {"type": "postback", "label": "🗝 合言葉で集会所に参加", "data": "#space_join"}}
 
                     {"type": "button", "style": "secondary",
                      "action": {"type": "postback", "label": f"➕ {BOARD_TITLE}に入れる", "data": "#board_add"}},
@@ -509,6 +525,48 @@ def handle_other_menu(reply_token, user_id, source_type=None, group_id=None):
         }
     }
     send_flex(reply_token, flex)
+
+def normalize_pass(s: str) -> str:
+    # 合言葉の表記揺れを減らす（空白トリム、連続空白を1つ）
+    s = (s or "").strip()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+def get_or_create_space_by_pass(tasks, passphrase: str, created_by: str):
+    """
+    合言葉に一致する集会所があれば返す。無ければ作って返す。
+    ※セキュリティ軽め：passは平文保存
+    """
+    passphrase = normalize_pass(passphrase)
+    if not passphrase:
+        return None
+
+    # 既存検索
+    for sid, info in tasks.get("spaces", {}).items():
+        if info.get("pass") == passphrase:
+            return sid
+
+    # 新規作成
+    # space_id は単純に連番でOK（衝突しにくい）
+    tasks.setdefault("spaces", {})
+    sid = f"s{len(tasks['spaces']) + 1}"
+
+    tasks["spaces"][sid] = {
+        "name": passphrase,      # 今は名前＝合言葉でOK（後で編集可能にしても良い）
+        "pass": passphrase,
+        "created_by": created_by
+    }
+    return sid
+
+def join_space(tasks, user_id: str, space_id: str):
+    tasks.setdefault("memberships", {})
+    tasks.setdefault("active_space", {})
+
+    tasks["memberships"].setdefault(user_id, [])
+    if space_id not in tasks["memberships"][user_id]:
+        tasks["memberships"][user_id].append(space_id)
+
+    tasks["active_space"][user_id] = space_id
     
 def _get_board_list(tasks, source_type, user_id, group_id):
     if source_type == "group" and group_id:
@@ -566,6 +624,29 @@ def handle_board_list(reply_token, user_id, source_type=None, group_id=None):
     
 def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     state = user_states.get(user_id)
+
+    # ✅ 集会所 参加（合言葉入力）
+    if state == "space_join_wait_pass":
+        tasks = load_tasks()
+        passphrase = normalize_pass(text)
+        if not passphrase:
+            send_reply(reply_token, "合言葉が空っぽみたい。もう一度送ってね")
+            return
+
+        sid = get_or_create_space_by_pass(tasks, passphrase, user_id)
+        if not sid:
+            send_reply(reply_token, "合言葉がうまく読めなかった…もう一度送ってね")
+            return
+
+        join_space(tasks, user_id, sid)
+        save_tasks(tasks)
+        user_states.pop(user_id, None)
+
+        space_name = tasks["spaces"][sid].get("name", "集会所")
+        send_reply(reply_token, f"✅ 「{space_name}」に参加したよ！\n以後の全体予定はこの集会所が対象になるよ")
+        return
+
+    # （以下、既存の add_check_title / add_personal / board_add... など）
 
     # ✅ 伝言板 追加（ここを最上部に）
     if state and state.startswith("board_add"):
@@ -1222,6 +1303,9 @@ def webhook():
                     else:
                         user_states[user_id] = "board_add_user"
                         send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね（個人用）")
+                
+                elif data == "#space_join":
+                    user_states[user_id] = "space_join_wait_pass"send_reply(reply_token, "🗝 合言葉（例：現場名 / 職長名）を送ってね")
                         
                 elif data == "#board_toggle_delete":
                     tasks = load_tasks()
