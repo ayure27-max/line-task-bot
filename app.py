@@ -496,13 +496,16 @@ def handle_other_menu(reply_token, user_id, source_type=None, group_id=None):
                     {"type": "separator", "margin": "md"},
 
                     {"type": "button", "style": "primary",
-                     "action": {"type": "postback", "label": f"📌 {BOARD_TITLE} ← 一覧", "data": "#board_list"}},
+                     "action": {"type": "postback", "label": f"📌 {BOARD_TITLE}", "data": "#board_list"}},
+                    
+                    {"type": "button", "style": "secondary",
+                    "action": {"type": "postback", "label": f"➕ {BOARD_TITLE}に入れる", "data": "#board_add"}},
                     
                     {"type": "button", "style": "secondary",
                      "action": {"type": "postback", "label": "🗝 合言葉で集会所に参加", "data": "#space_join"}},
-
+                    
                     {"type": "button", "style": "secondary",
-                     "action": {"type": "postback", "label": f"➕ {BOARD_TITLE}に入れる", "data": "#board_add"}},
+                     "action": {"type": "postback", "label": "🗂 集会所を選ぶ（active切替）", "data": "#space_list"}},
 
                     {"type": "separator", "margin": "md"},
 
@@ -556,7 +559,7 @@ def get_or_create_space_by_pass(tasks, passphrase: str, created_by: str):
         "created_by": created_by
     }
     return sid
-
+    
 def join_space(tasks, user_id: str, space_id: str):
     tasks.setdefault("memberships", {})
     tasks.setdefault("active_space", {})
@@ -568,8 +571,99 @@ def join_space(tasks, user_id: str, space_id: str):
     tasks["active_space"][user_id] = space_id
 
 def get_active_space_id(tasks, user_id: str):
-    return tasks.get("active_space", {}).get(user_id)
+    tasks.setdefault("active_space", {})
+    return tasks["active_space"].get(user_id)
 
+def get_user_spaces(tasks, user_id: str):
+    """ユーザーが参加している space_id のリストを返す"""
+    tasks.setdefault("memberships", {})
+    return tasks["memberships"].get(user_id, [])
+
+def build_space_list_flex(tasks, user_id: str):
+    spaces = tasks.get("spaces", {})
+    memberships = get_user_spaces(tasks, user_id)
+    active_sid = get_active_space_id(tasks, user_id)
+
+    body = [
+        {"type": "text", "text": "🗂 集会所一覧", "weight": "bold", "size": "lg"},
+        {"type": "text", "text": "（ここで全体予定の表示先を切り替える）", "size": "sm", "color": "#64748B"},
+        {"type": "separator", "margin": "md"},
+    ]
+
+    if not memberships:
+        body.append({"type": "text", "text": "まだ集会所に参加してないよ。", "color": "#94A3B8"})
+        body.append({
+            "type": "text",
+            "text": "「🗝 合言葉で集会所に参加」から入ってね。",
+            "size": "sm",
+            "color": "#94A3B8",
+            "wrap": True,
+            "margin": "md"
+        })
+    else:
+        for sid in memberships[:10]:  # Flexの都合で最大10件くらいが無難
+            info = spaces.get(sid, {})
+            name = info.get("name", sid)
+
+            is_active = (sid == active_sid)
+            right_btn = {
+                "type": "button",
+                "style": "primary" if not is_active else "secondary",
+                "height": "sm",
+                "action": {
+                    "type": "postback",
+                    "label": "✅" if is_active else "切替",
+                    "data": f"#space_set_{sid}"
+                }
+            }
+
+            body.append({
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "sm",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": f"{'✅ ' if is_active else ''}{name}",
+                        "wrap": True,
+                        "flex": 7,
+                        "size": "sm"
+                    },
+                    dict(right_btn, flex=3)
+                ]
+            })
+
+    return {
+        "type": "flex",
+        "altText": "集会所一覧",
+        "contents": {
+            "type": "bubble",
+            "styles": {"body": {"backgroundColor": "#F8FAFC"}},
+            "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body}
+        }
+    }
+
+def handle_space_list(reply_token, user_id: str):
+    tasks = load_tasks()
+    flex = build_space_list_flex(tasks, user_id)
+    send_flex(reply_token, flex)
+
+def handle_space_set(reply_token, user_id: str, sid: str):
+    tasks = load_tasks()
+
+    # 参加してない集会所に切替しようとしたら拒否
+    memberships = get_user_spaces(tasks, user_id)
+    if sid not in memberships:
+        send_reply(reply_token, "その集会所には参加してないみたい。先に合言葉で参加してね。")
+        return
+
+    tasks.setdefault("active_space", {})
+    tasks["active_space"][user_id] = sid
+    save_tasks(tasks)
+
+    name = tasks.get("spaces", {}).get(sid, {}).get("name", sid)
+    send_reply(reply_token, f"✅ Active集会所を「{name}」に切り替えたよ")
+    
 def get_space_global_tasks(tasks, user_id: str):
     sid = get_active_space_id(tasks, user_id)
     if not sid:
@@ -1402,7 +1496,14 @@ def webhook():
                 # --- 集会所参加（合言葉）---
                 elif data == "#space_join":
                     user_states[user_id] = "space_join_wait_pass"
-                    send_reply(reply_token, "🗝 合言葉（例：現場名 / 職長名）を送ってね")
+                    send_reply(reply_token, "🗝 合言葉を送ってね")
+                
+                elif data == "#space_list":
+                    handle_space_list(reply_token, user_id)
+                    
+                elif data.startswith("#space_set_"):
+                    sid = data.replace("#space_set_", "", 1)
+                    handle_space_set(reply_token, user_id, sid)
 
                 elif data == "#board_toggle_delete":
                     tasks = load_tasks()
