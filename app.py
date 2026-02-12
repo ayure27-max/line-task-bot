@@ -48,21 +48,18 @@ print("TOKEN EXISTS:", bool(LINE_CHANNEL_ACCESS_TOKEN))
 
 user_states = {}
 DATA_FILE = "tasks.json"
-import psycopg
-from psycopg.rows import dict_row
 
 DEFAULT_TASKS = {
-    "users": {}, "groups": {}, "checklists": {}, "settings": {},
-    "board": {"users": {}, "groups": {}}
-    
-    DEFAULT_TASKS = {
-    "users": {}, "groups": {}, "checklists": {}, "settings": {},
+    "users": {},
+    "groups": {},
+    "checklists": {},
+    "settings": {},
     "board": {"users": {}, "groups": {}},
 
-    # 👇 追加：集会所（合言葉）システム
-    "spaces": {},            # space_id -> { "name": str, "pass": str, "created_by": str }
-    "memberships": {},       # user_id -> [space_id, ...]
-    "active_space": {}       # user_id -> space_id
+    # 集会所（合言葉）
+    "spaces": {},           # space_id -> {name, pass, created_by}
+    "memberships": {},      # user_id -> [space_id...]
+    "active_space": {}      # user_id -> space_id
 }
 
 def db_connect():
@@ -500,7 +497,7 @@ def handle_other_menu(reply_token, user_id, source_type=None, group_id=None):
                      "action": {"type": "postback", "label": f"📌 {BOARD_TITLE} ← 一覧", "data": "#board_list"}},
                     
                     {"type": "button", "style": "secondary",
-                     "action": {"type": "postback", "label": "🗝 合言葉で集会所に参加", "data": "#space_join"}}
+                     "action": {"type": "postback", "label": "🗝 合言葉で集会所に参加", "data": "#space_join"}},
 
                     {"type": "button", "style": "secondary",
                      "action": {"type": "postback", "label": f"➕ {BOARD_TITLE}に入れる", "data": "#board_add"}},
@@ -1236,13 +1233,13 @@ def webhook():
         reply_token = event.get("replyToken")
 
         try:
-            source = event.get("source", {})
+            source = event.get("source", {}) or {}
             source_type = source.get("type")
             user_id = source.get("userId")
             group_id = source.get("groupId") if source_type == "group" else None
 
             if event.get("type") == "postback":
-                data = event.get("postback", {}).get("data", "")
+                data = event.get("postback", {}).get("data", "") or ""
 
                 # --- リッチメニュー：予定表 ---
                 if data == "scope=menu&action=list":
@@ -1250,7 +1247,7 @@ def webhook():
                     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
 
                     group_tasks = []
-                    if source_type == "group":
+                    if source_type == "group" and group_id:
                         tasks.setdefault("groups", {})
                         tasks["groups"].setdefault(group_id, [])
                         group_tasks = [
@@ -1288,40 +1285,43 @@ def webhook():
                 # --- 通常：追加メニューを表示 ---
                 elif data == "scope=menu&action=add":
                     handle_menu_add(reply_token, user_id)
-                    
+
+                # --- その他メニュー ---
                 elif data in ("scope=menu&action=other", "other"):
                     handle_other_menu(reply_token, user_id, source_type, group_id)
-                    
+
+                # --- 伝言板 ---
                 elif data == "#board_list":
                     handle_board_list(reply_token, user_id, source_type, group_id)
-                    
+
                 elif data == "#board_add":
                     if source_type == "group" and group_id:
                         user_states[user_id] = f"board_add_group:{group_id}"
                         send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね（グループ共有）")
-                        
                     else:
                         user_states[user_id] = "board_add_user"
                         send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね（個人用）")
-                
+
+                # --- 集会所参加（合言葉）---
                 elif data == "#space_join":
-                    user_states[user_id] = "space_join_wait_pass"send_reply(reply_token, "🗝 合言葉（例：現場名 / 職長名）を送ってね")
-                        
+                    user_states[user_id] = "space_join_wait_pass"
+                    send_reply(reply_token, "🗝 合言葉（例：現場名 / 職長名）を送ってね")
+
                 elif data == "#board_toggle_delete":
                     tasks = load_tasks()
                     toggle_board_ui_flag(tasks, user_id, "show_delete")
                     save_tasks(tasks)
                     handle_other_menu(reply_token, user_id, source_type, group_id)
-                    
+
                 elif data == "#board_toggle_reorder":
                     tasks = load_tasks()
                     toggle_board_ui_flag(tasks, user_id, "show_reorder")
                     save_tasks(tasks)
                     handle_other_menu(reply_token, user_id, source_type, group_id)
-                    
+
                 elif data.startswith("#board_delete_"):
                     handle_board_delete(reply_token, user_id, data, source_type, group_id)
-                    
+
                 elif data.startswith("#board_move_"):
                     handle_board_move(reply_token, user_id, data, source_type, group_id)
 
@@ -1343,7 +1343,7 @@ def webhook():
                     send_reply(reply_token, "追加する予定を送ってね")
 
                 elif data == "#add_global":
-                    if source_type == "group":
+                    if source_type == "group" and group_id:
                         user_states[user_id] = f"add_global_{group_id}"
                         send_reply(reply_token, "🌍 全体予定を書いてね")
                     else:
@@ -1375,7 +1375,6 @@ def webhook():
                 handle_message(reply_token, user_id, text, source_type, group_id)
 
         except Exception as e:
-            # ここが「DB不調でも無反応にしない」保険
             print("❌ webhook handler error:", repr(e))
             print(traceback.format_exc())
             if reply_token:
@@ -1385,7 +1384,7 @@ def webhook():
                 )
 
     return "OK", 200
-
+    
 @app.route("/")
 def home():
     return "Bot is running!"
