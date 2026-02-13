@@ -256,7 +256,7 @@ def task_row(text, done_data, delete_data=None, label="✅"):
             "height": "sm",
             "action": {
                 "type": "postback",
-                "label": label,   # ← ✅ とか 復帰 
+                "label": label,   # ← ✅ とか復帰 
                 "data": done_data
             }
         }
