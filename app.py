@@ -215,12 +215,13 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
     })
 
     if global_tasks:
-        for i, task in enumerate(global_tasks):
+        for task in global_tasks:
+            idx = task.get("_idx")
             body.append(
                 task_row(
                     task["text"],
-                    f"#space_done_{s}",
-                    f"#space_delete_{s}"
+                    f"#space_done_{idx}",
+                    f"#space_delete_{idx}",
                 )
             )
     else:
@@ -700,8 +701,8 @@ def handle_space_leave(reply_token, user_id: str, sid: str):
     
 def get_space_global_tasks(tasks, user_id: str):
     """
-    Active集会所の「未完了の全体予定」を返す
-    return: (list, sid or None)
+    Active集会所の「未完了の全体予定」を返す（表示用に _idx を付ける）
+    return: (list[{"text":..., "_idx": int}], sid or None)
     """
     sid = tasks.get("active_space", {}).get(user_id)
     if not sid:
@@ -710,11 +711,19 @@ def get_space_global_tasks(tasks, user_id: str):
     tasks.setdefault("space_tasks", {})
     items = tasks["space_tasks"].setdefault(sid, [])
 
-    visible = [t for t in items if user_id not in t.get("done_by", [])]
+    visible = []
+    for idx, t in enumerate(items):
+        done_by = t.get("done_by", [])
+        if user_id not in done_by:
+            visible.append({"text": t.get("text", ""), "_idx": idx})
+
     return visible, sid
 
+
 def get_space_done_tasks(tasks, user_id: str):
-    """Active集会所の「完了済み全体予定」を返す"""
+    """
+    Active集会所の「完了済み全体予定」を返す（表示用に _idx を付ける）
+    """
     sid = tasks.get("active_space", {}).get(user_id)
     if not sid:
         return [], None
@@ -722,7 +731,12 @@ def get_space_done_tasks(tasks, user_id: str):
     tasks.setdefault("space_tasks", {})
     items = tasks["space_tasks"].setdefault(sid, [])
 
-    done = [t for t in items if user_id in t.get("done_by", [])]
+    done = []
+    for idx, t in enumerate(items):
+        done_by = t.get("done_by", [])
+        if user_id in done_by:
+            done.append({"text": t.get("text", ""), "_idx": idx})
+
     return done, sid
     
 def _get_board_list(tasks, source_type, user_id, group_id):
@@ -805,21 +819,20 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
 
     # （以下、既存の add_check_title / add_personal / board_add... など）
     
-    # ✅ Active集会所の全体予定 追加
-    if state and state.startswith("add_space_global:"):
+    # ✅ Active集会所の全体予定 追加（統一：space_add_global:{sid}）
+    if state and state.startswith("space_add_global:"):
         tasks = load_tasks()
         sid = state.split(":", 1)[1]
-        
+
         tasks.setdefault("space_tasks", {})
         tasks["space_tasks"].setdefault(sid, []).append({
             "text": text,
             "done_by": []
         })
-        
+
         save_tasks(tasks)
         user_states.pop(user_id, None)
-        
-        # 追加後は予定表を再表示（個人 + Active全体）
+
         personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
         global_tasks, _ = get_space_global_tasks(tasks, user_id)
         send_schedule(reply_token, personal, global_tasks)
@@ -1059,10 +1072,13 @@ def handle_space_done(reply_token, user_id, data):
     idx = int(data.split("_")[-1])
     tasks = load_tasks()
 
-    items, sid = get_space_global_tasks(tasks, user_id)
+    sid = get_active_space_id(tasks, user_id)
     if not sid:
         send_reply(reply_token, "集会所が未選択だよ")
         return
+
+    tasks.setdefault("space_tasks", {})
+    items = tasks["space_tasks"].setdefault(sid, [])
 
     if 0 <= idx < len(items):
         items[idx].setdefault("done_by", [])
@@ -1071,7 +1087,6 @@ def handle_space_done(reply_token, user_id, data):
 
     save_tasks(tasks)
 
-    # 再表示（個人 + 集会所）
     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
     global_tasks, _ = get_space_global_tasks(tasks, user_id)
     send_schedule(reply_token, personal, global_tasks)
@@ -1080,10 +1095,13 @@ def handle_space_delete(reply_token, user_id, data):
     idx = int(data.split("_")[-1])
     tasks = load_tasks()
 
-    items, sid = get_space_global_tasks(tasks, user_id)
+    sid = get_active_space_id(tasks, user_id)
     if not sid:
         send_reply(reply_token, "集会所が未選択だよ")
         return
+
+    tasks.setdefault("space_tasks", {})
+    items = tasks["space_tasks"].setdefault(sid, [])
 
     if 0 <= idx < len(items):
         items.pop(idx)
