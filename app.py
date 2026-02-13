@@ -219,8 +219,8 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
             body.append(
                 task_row(
                     task["text"],
-                    f"#space_done_{i}",
-                    f"#space_delete_{i}"
+                    f"#space_done_{s}",
+                    f"#space_delete_{s}"
                 )
             )
     else:
@@ -581,40 +581,54 @@ def get_user_spaces(tasks, user_id: str):
 
 def build_space_list_flex(tasks, user_id: str):
     spaces = tasks.get("spaces", {})
-    memberships = get_user_spaces(tasks, user_id)
-    active_sid = get_active_space_id(tasks, user_id)
+    memberships = get_user_spaces(tasks, user_id)      # 例: ["s1","s2"]
+    active_sid = get_active_space_id(tasks, user_id)   # 例: "s1" or None
+
+    count = len(memberships)
 
     body = [
         {"type": "text", "text": "🗂 集会所一覧", "weight": "bold", "size": "lg"},
+        {"type": "text", "text": f"参加中：{count}件", "size": "sm", "color": "#64748B"},
         {"type": "text", "text": "（ここで全体予定の表示先を切り替える）", "size": "sm", "color": "#64748B"},
         {"type": "separator", "margin": "md"},
     ]
 
     if not memberships:
-        body.append({"type": "text", "text": "まだ集会所に参加してないよ。", "color": "#94A3B8"})
-        body.append({
-            "type": "text",
-            "text": "「🗝 合言葉で集会所に参加」から入ってね。",
-            "size": "sm",
-            "color": "#94A3B8",
-            "wrap": True,
-            "margin": "md"
-        })
+        body.append({"type": "text", "text": "まだ参加してる集会所がないよ", "color": "#94A3B8"})
     else:
-        for sid in memberships[:10]:  # Flexの都合で最大10件くらいが無難
+        for sid in memberships:
             info = spaces.get(sid, {})
             name = info.get("name", sid)
-
             is_active = (sid == active_sid)
-            right_btn = {
-                "type": "button",
-                "style": "primary" if not is_active else "secondary",
-                "height": "sm",
-                "action": {
-                    "type": "postback",
-                    "label": "✅" if is_active else "切替",
-                    "data": f"#space_set_{sid}"
-                }
+
+            # 右側ボタン（切替 / 退出）
+            right_box = {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "xs",
+                "flex": 3,
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "secondary" if is_active else "primary",
+                        "height": "sm",
+                        "action": {
+                            "type": "postback",
+                            "label": "✅" if is_active else "切替",
+                            "data": f"#space_set_{sid}"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "height": "sm",
+                        "action": {
+                            "type": "postback",
+                            "label": "退出",
+                            "data": f"#space_leave_{sid}"
+                        }
+                    }
+                ]
             }
 
             body.append({
@@ -622,14 +636,8 @@ def build_space_list_flex(tasks, user_id: str):
                 "layout": "horizontal",
                 "spacing": "sm",
                 "contents": [
-                    {
-                        "type": "text",
-                        "text": f"{'✅ ' if is_active else ''}{name}",
-                        "wrap": True,
-                        "flex": 7,
-                        "size": "sm"
-                    },
-                    dict(right_btn, flex=3)
+                    {"type": "text", "text": f"{'✅ ' if is_active else ''}{name}", "wrap": True, "flex": 7, "size": "sm"},
+                    right_box
                 ]
             })
 
@@ -638,8 +646,12 @@ def build_space_list_flex(tasks, user_id: str):
         "altText": "集会所一覧",
         "contents": {
             "type": "bubble",
-            "styles": {"body": {"backgroundColor": "#F8FAFC"}},
-            "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body}
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": body
+            }
         }
     }
 
@@ -664,13 +676,54 @@ def handle_space_set(reply_token, user_id: str, sid: str):
     name = tasks.get("spaces", {}).get(sid, {}).get("name", sid)
     send_reply(reply_token, f"✅ Active集会所を「{name}」に切り替えたよ")
     
+def handle_space_leave(reply_token, user_id: str, sid: str):
+    tasks = load_tasks()
+
+    memberships = tasks.get("memberships", {}).get(user_id, [])
+    if sid not in memberships:
+        send_reply(reply_token, "その集会所には参加してないみたい。")
+        return
+
+    memberships.remove(sid)
+    tasks["memberships"][user_id] = memberships
+
+    # Activeだった場合：残りがあれば先頭に切替、なければ未選択に
+    active = tasks.get("active_space", {}).get(user_id)
+    if active == sid:
+        if memberships:
+            tasks["active_space"][user_id] = memberships[0]
+        else:
+            tasks["active_space"].pop(user_id, None)
+
+    save_tasks(tasks)
+    send_reply(reply_token, "🚪 退出したよ")
+    
 def get_space_global_tasks(tasks, user_id: str):
-    sid = get_active_space_id(tasks, user_id)
+    """
+    Active集会所の「未完了の全体予定」を返す
+    return: (list, sid or None)
+    """
+    sid = tasks.get("active_space", {}).get(user_id)
     if not sid:
-        return [], None  # 未参加
+        return [], None
+
     tasks.setdefault("space_tasks", {})
-    tasks["space_tasks"].setdefault(sid, [])
-    return tasks["space_tasks"][sid], sid
+    items = tasks["space_tasks"].setdefault(sid, [])
+
+    visible = [t for t in items if user_id not in t.get("done_by", [])]
+    return visible, sid
+
+def get_space_done_tasks(tasks, user_id: str):
+    """Active集会所の「完了済み全体予定」を返す"""
+    sid = tasks.get("active_space", {}).get(user_id)
+    if not sid:
+        return [], None
+
+    tasks.setdefault("space_tasks", {})
+    items = tasks["space_tasks"].setdefault(sid, [])
+
+    done = [t for t in items if user_id in t.get("done_by", [])]
+    return done, sid
     
 def _get_board_list(tasks, source_type, user_id, group_id):
     if source_type == "group" and group_id:
@@ -752,24 +805,24 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
 
     # （以下、既存の add_check_title / add_personal / board_add... など）
     
-    # ✅ 集会所の全体予定 追加
-    if state and state.startswith("space_add_global:"):
+    # ✅ Active集会所の全体予定 追加
+    if state and state.startswith("add_space_global:"):
         tasks = load_tasks()
         sid = state.split(":", 1)[1]
         
-        # 念のため space_tasks を準備
         tasks.setdefault("space_tasks", {})
-        tasks["space_tasks"].setdefault(sid, [])
-        
-        tasks["space_tasks"][sid].append({
+        tasks["space_tasks"].setdefault(sid, []).append({
             "text": text,
-            "status": "todo"
+            "done_by": []
         })
         
         save_tasks(tasks)
         user_states.pop(user_id, None)
         
-        send_reply(reply_token, "🌍 全体予定を追加したよ")
+        # 追加後は予定表を再表示（個人 + Active全体）
+        personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
+        global_tasks, _ = get_space_global_tasks(tasks, user_id)
+        send_schedule(reply_token, personal, global_tasks)
         return
     
     # ✅ 伝言板 追加（ここを最上部に）
@@ -928,7 +981,7 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
             if user_id not in t.get("done_by", [])
         ]
     
-    send_schedule(reply_token, personal, group_tasks)
+    send_done_schedule(reply_token, personal_done, space_done)
     
 def handle_show_done(reply_token, user_id, source_type, group_id=None):
     tasks = load_tasks()
@@ -1053,6 +1106,12 @@ def handle_undo(reply_token, user_id, data, group_id):
     elif scope == "g" and group_id:
         tasks.setdefault("groups", {})
         tasks["groups"].setdefault(group_id, [])
+        
+    elif scope == "s":
+        sid = tasks.get("active_space", {}).get(user_id)
+        if not sid:
+            send_reply(reply_token, "⚠️ 集会所が未選択だよ。")
+            return
         
         if user_id in tasks["groups"][group_id][idx].get("done_by", []):
             tasks["groups"][group_id][idx]["done_by"].remove(user_id)
@@ -1504,6 +1563,10 @@ def webhook():
                 elif data.startswith("#space_set_"):
                     sid = data.replace("#space_set_", "", 1)
                     handle_space_set(reply_token, user_id, sid)
+                    
+                elif data.startswith("#space_leave_"):
+                    sid = data.replace("#space_leave_", "", 1)
+                    handle_space_leave(reply_token, user_id, sid)
 
                 elif data == "#board_toggle_delete":
                     tasks = load_tasks()
@@ -1550,9 +1613,6 @@ def webhook():
                     user_states[user_id] = "add_personal"
                     send_reply(reply_token, "追加する予定を送ってね")
                     
-                elif data == "#other_add_global":
-                    user_states[user_id] = "space_add_global"
-                    send_reply(reply_token, "🌍 全体予定（集会所共通）を送ってね")
 
                 # ====== チェックリスト作成 ======
                 elif data == "#add_check":
