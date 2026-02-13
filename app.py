@@ -908,6 +908,30 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
         send_reply(reply_token, "追加しました。続けて入力してください。")
         return
 
+    # ✅ チェックリスト：項目追加（既存リストに追記）
+    if state and state.startswith("add_check_item:"):
+        _, c_idx, opened = state.split(":")
+        c_idx = int(c_idx)
+        opened = int(opened)
+
+        if text.strip() == "キャンセル":
+            user_states.pop(user_id, None)
+            send_reply(reply_token, "キャンセルしたよ")
+            return
+
+        tasks = load_tasks()
+        checklists = tasks.get("checklists", {}).get(user_id, [])
+
+        if 0 <= c_idx < len(checklists):
+            checklists[c_idx].setdefault("items", []).append({"text": text, "done": False})
+            save_tasks(tasks)
+
+        user_states.pop(user_id, None)
+
+        # 追加後、そのリストを開いた状態で再表示
+        handle_list_check(reply_token, user_id, c_idx)
+        return
+        
     # ===== 個人予定追加 =====
     if state == "add_personal":
         tasks = load_tasks()
