@@ -644,6 +644,7 @@ def build_space_list_flex(tasks, user_id: str):
                 ]
             })
 
+
     return {
         "type": "flex",
         "altText": "集会所一覧",
