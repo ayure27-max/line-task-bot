@@ -193,41 +193,48 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False, show_dele
     if personal_tasks:
         for i, task in enumerate(personal_tasks):
             if show_done:
-                body.append(task_row(task["text"], f"#list_undo_p_{i}", label="↩"))
-            if personal_tasks:
-    for i, task in enumerate(personal_tasks):
-        if show_done:
-            body.append(task_row(task["text"], f"#list_undo_p_{i}", label="↩"))
-        else:
-            if show_delete:
-                body.append(task_row(task["text"], f"#list_done_p_{i}", f"#list_delete_p_{i}", label="✅"))
+                # 完了済み表示（復帰だけ）
+                body.append(task_row(task["text"], f"#list_undo_p_{i}", delete_data=None, label="↩"))
             else:
-                body.append(task_row(task["text"], f"#list_done_p_{i}", delete_data=None, label="✅"))
-
+                # 通常表示（完了 + 必要なら削除）
+                if show_delete:
+                    body.append(task_row(task["text"], f"#list_done_p_{i}", f"#list_delete_p_{i}", label="✅"))
+                else:
+                    body.append(task_row(task["text"], f"#list_done_p_{i}", delete_data=None, label="✅"))
     else:
         body.append(empty_row())
 
+    # 🌍 全体予定（集会所名を表示）
     title = "🌍 全体の予定"
     if space_name:
         title += f"（{space_name}）"
-        
+
     body.append({
         "type": "text",
         "text": title,
         "weight": "bold",
         "margin": "lg"
-        })
+    })
 
     if global_tasks:
         for task in global_tasks:
             idx = task.get("_idx")
-            if show_delete:
-            body.append(task_row(task["text"], f"#space_done_{idx}", f"#space_delete_{idx}"))
-        else:
-            body.append(task_row(task["text"], f"#space_done_{idx}", delete_data=None))
+
+            if show_done:
+                # ※必要なら「全体の完了済み復帰」を作るならここ
+                # 今は「予定表」では未使用想定なので、いったん通常と同じにしておく
+                if show_delete:
+                    body.append(task_row(task["text"], f"#space_done_{idx}", f"#space_delete_{idx}"))
+                else:
+                    body.append(task_row(task["text"], f"#space_done_{idx}", delete_data=None))
+            else:
+                if show_delete:
+                    body.append(task_row(task["text"], f"#space_done_{idx}", f"#space_delete_{idx}"))
+                else:
+                    body.append(task_row(task["text"], f"#space_done_{idx}", delete_data=None))
     else:
         body.append(empty_row())
-        
+
     body.append({
         "type": "button",
         "style": "primary",
