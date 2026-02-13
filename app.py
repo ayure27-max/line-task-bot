@@ -1662,7 +1662,7 @@ def webhook():
                         send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね（グループ共有）")
                     else:
                         user_states[user_id] = "board_add_user"
-                        send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね（個人用）")
+                        send_reply(reply_token, f"➕ {BOARD_TITLE}に入れる内容を送ってね")
 
                 # --- 集会所参加（合言葉）---
                 elif data == "#space_join":
