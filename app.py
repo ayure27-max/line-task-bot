@@ -172,7 +172,7 @@ def send_flex(reply_token, flex):
     }
     requests.post(url, headers=headers, json=data)
 
-def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
+def build_schedule_flex(personal_tasks, global_tasks, show_done=False, show_delete=False, space_name=None):
     body = []
 
     body.append({
@@ -194,36 +194,37 @@ def build_schedule_flex(personal_tasks, global_tasks, show_done=False):
         for i, task in enumerate(personal_tasks):
             if show_done:
                 body.append(task_row(task["text"], f"#list_undo_p_{i}", label="↩"))
+            if personal_tasks:
+    for i, task in enumerate(personal_tasks):
+        if show_done:
+            body.append(task_row(task["text"], f"#list_undo_p_{i}", label="↩"))
+        else:
+            if show_delete:
+                body.append(task_row(task["text"], f"#list_done_p_{i}", f"#list_delete_p_{i}", label="✅"))
             else:
-                body.append(
-                    task_row(
-                        task["text"],
-                        f"#list_done_p_{i}",
-                        f"#list_delete_p_{i}",
-                        label="✅"
-                    )
-                )
+                body.append(task_row(task["text"], f"#list_done_p_{i}", delete_data=None, label="✅"))
+
     else:
         body.append(empty_row())
 
-    # 🌍 全体予定
+    title = "🌍 全体の予定"
+    if space_name:
+        title += f"（{space_name}）"
+        
     body.append({
         "type": "text",
-        "text": "🌍 全体の予定",
+        "text": title,
         "weight": "bold",
         "margin": "lg"
-    })
+        })
 
     if global_tasks:
         for task in global_tasks:
             idx = task.get("_idx")
-            body.append(
-                task_row(
-                    task["text"],
-                    f"#space_done_{idx}",
-                    f"#space_delete_{idx}",
-                )
-            )
+            if show_delete:
+            body.append(task_row(task["text"], f"#space_done_{idx}", f"#space_delete_{idx}"))
+        else:
+            body.append(task_row(task["text"], f"#space_done_{idx}", delete_data=None))
     else:
         body.append(empty_row())
         
@@ -303,12 +304,14 @@ def empty_row():
         "color": "#999999"
     }
     
-def send_schedule(reply_token, personal_tasks, global_tasks, show_done=False):
-    url = "https://api.line.me/v2/bot/message/reply"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
-    }
+def send_schedule(reply_token, personal_tasks, global_tasks, show_done=False, user_id=None):
+    tasks = load_tasks()
+    show_delete = get_schedule_ui_flags(tasks, user_id).get("show_delete", False)
+
+    sid = get_active_space_id(tasks, user_id)
+    space_name = None
+    if sid:
+        space_name = tasks.get("spaces", {}).get(sid, {}).get("name", sid)
 
     data = {
         "replyToken": reply_token,
@@ -316,11 +319,15 @@ def send_schedule(reply_token, personal_tasks, global_tasks, show_done=False):
             {
                 "type": "flex",
                 "altText": "予定表",
-                "contents": build_schedule_flex(personal_tasks, global_tasks, show_done)
+                "contents": build_schedule_flex(
+                    personal_tasks, global_tasks,
+                    show_done=show_done,
+                    show_delete=show_delete,
+                    space_name=space_name
+                )
             }
         ]
     }
-
     requests.post(url, headers=headers, json=data)
     
 def send_done_schedule(reply_token, personal_done, space_done):
@@ -388,92 +395,72 @@ def send_done_schedule(reply_token, personal_done, space_done):
     
 def handle_menu_add(reply_token, user_id):
     tasks = load_tasks()
-    ui = get_check_ui_flags(tasks, user_id)
 
-    del_state = "ON" if ui.get("show_delete") else "OFF"
-    reo_state = "ON" if ui.get("show_reorder") else "OFF"
+    # チェックUI
+    check_ui = get_check_ui_flags(tasks, user_id)
+    check_ops_open = check_ui.get("show_ops", False)
+    del_state = "ON" if check_ui.get("show_delete") else "OFF"
+    reo_state = "ON" if check_ui.get("show_reorder") else "OFF"
+
+    # 予定表UI（★新規）
+    sched_ui = get_schedule_ui_flags(tasks, user_id)
+    sched_del_state = "ON" if sched_ui.get("show_delete") else "OFF"
+
+    contents = [
+        {"type": "text", "text": "➕ 追加", "weight": "bold", "size": "lg"},
+
+        # ---- 追加系 ----
+        {"type": "button", "action": {"type": "postback", "label": "👤 個人予定を追加", "data": "#add_personal"}},
+        # ★統一：全体予定は「集会所」に追加
+        {"type": "button", "action": {"type": "postback", "label": "🌍 全体予定を追加（この集会所）", "data": "#add_global"}},
+        {"type": "button", "action": {"type": "postback", "label": "📝 チェックリスト作成", "data": "#add_check"}},
+
+        {"type": "separator", "margin": "lg"},
+
+        # ---- 折りたたみヘッダ ----
+        {
+            "type": "button",
+            "style": "secondary",
+            "action": {
+                "type": "postback",
+                "label": "⚙️ 操作モードを閉じる" if check_ops_open else "⚙️ 操作モードを開く",
+                "data": "#toggle_ops_menu"
+            }
+        }
+    ]
+
+    # ---- 操作モード（開いてるときだけ表示）----
+    if check_ops_open:
+        contents += [
+            {"type": "text", "text": "（普段は隠す：削除/並び替え）", "size": "sm", "color": "#666666"},
+
+            # チェックリスト用
+            {
+                "type": "button",
+                "style": "secondary",
+                "action": {"type": "postback", "label": f"🗑 チェック削除モード：{del_state}", "data": "#toggle_delete_mode"}
+            },
+            {
+                "type": "button",
+                "style": "secondary",
+                "action": {"type": "postback", "label": f"↕ チェック並び替え：{reo_state}", "data": "#toggle_reorder_mode"}
+            },
+
+            {"type": "separator", "margin": "md"},
+
+            # ★予定表用（4の対応）
+            {
+                "type": "button",
+                "style": "secondary",
+                "action": {"type": "postback", "label": f"🗑 予定表削除モード：{sched_del_state}", "data": "#toggle_schedule_delete_mode"}
+            },
+        ]
 
     flex = {
         "type": "flex",
-        "altText": "追加メニュー",
-        "contents": {
-            "type": "bubble",
-            "body": {
-                "type": "box",
-                "layout": "vertical",
-                "spacing": "sm",
-                "contents": [
-                    {
-                        "type": "text",
-                        "text": "➕ 追加/モード",
-                        "weight": "bold",
-                        "size": "lg"
-                    },
-
-                    # ---- 追加系 ----
-                    {
-                        "type": "button",
-                        "action": {
-                            "type": "postback",
-                            "label": "個人予定を追加",
-                            "data": "#add_personal"
-                        }
-                    },
-                    {
-                        "type": "button",
-                        "action": {
-                            "type": "postback",
-                            "label": "全体予定を追加",
-                            "data": "#add_global"
-                        }
-                    },
-                    {
-                        "type": "button",
-                        "action": {
-                            "type": "postback",
-                            "label": "チェックリスト作成",
-                            "data": "#add_check"
-                        }
-                    },
-
-                    # ---- 区切り ----
-                    {
-                        "type": "separator",
-                        "margin": "lg"
-                    },
-                    {
-                        "type": "text",
-                        "text": "🛠 操作モード（普段は隠す）",
-                        "weight": "bold",
-                        "margin": "lg",
-                        "size": "sm",
-                        "color": "#666666"
-                    },
-
-                    # ---- モード切替 ----
-                    {
-                        "type": "button",
-                        "style": "secondary",
-                        "action": {
-                            "type": "postback",
-                            "label": f"🗑 削除モード：{del_state}",
-                            "data": "#toggle_delete_mode"
-                        }
-                    },
-                    {
-                        "type": "button",
-                        "style": "secondary",
-                        "action": {
-                            "type": "postback",
-                            "label": f"↕ 並び替えモード：{reo_state}",
-                            "data": "#toggle_reorder_mode"
-                        }
-                    }
-                ]
-            }
-        }
+        "altText": "追加",
+        "contents": {"type": "bubble", "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": contents}}
     }
-
     send_flex(reply_token, flex)
     
 BOARD_TITLE = "伝言板"
@@ -481,56 +468,60 @@ BOARD_TITLE = "伝言板"
 def handle_other_menu(reply_token, user_id, source_type=None, group_id=None):
     tasks = load_tasks()
     ui = get_board_ui_flags(tasks, user_id)
+    ops_open = ui.get("show_ops", False)
+
     del_state = "ON" if ui.get("show_delete") else "OFF"
     reo_state = "ON" if ui.get("show_reorder") else "OFF"
+
+    contents = [
+        {"type": "text", "text": "🧰 その他", "weight": "bold", "size": "lg"},
+        {"type": "separator", "margin": "md"},
+
+        {"type": "button", "style": "primary",
+         "action": {"type": "postback", "label": f"📌 {BOARD_TITLE}", "data": "#board_list"}},
+
+        {"type": "button", "style": "secondary",
+         "action": {"type": "postback", "label": f"➕ {BOARD_TITLE}に入れる", "data": "#board_add"}},
+
+        {"type": "separator", "margin": "md"},
+
+        {"type": "button", "style": "secondary",
+         "action": {"type": "postback", "label": "🗝 合言葉で集会所に参加", "data": "#space_join"}},
+
+        {"type": "button", "style": "secondary",
+         "action": {"type": "postback", "label": "🗂 集会所を選ぶ（active切替）", "data": "#space_list"}},
+
+        {"type": "button", "style": "secondary",
+         "action": {"type": "postback", "label": "🌍 全体予定を追加（この集会所）", "data": "#other_add_global"}},
+
+        {"type": "separator", "margin": "md"},
+
+        # ★折りたたみ
+        {"type": "button", "style": "secondary",
+         "action": {"type": "postback",
+                    "label": "⚙️ 伝言板の整理を閉じる" if ops_open else "⚙️ 伝言板の整理を開く",
+                    "data": "#board_toggle_ops"}}
+    ]
+
+    if ops_open:
+        contents += [
+            {"type": "text", "text": "（普段は隠す：削除/並び替え）", "size": "sm", "color": "#64748B"},
+
+            {"type": "button", "style": "secondary",
+             "action": {"type": "postback", "label": f"🗑 削除モード：{del_state}", "data": "#board_toggle_delete"}},
+
+            {"type": "button", "style": "secondary",
+             "action": {"type": "postback", "label": f"↕ 並び替えモード：{reo_state}", "data": "#board_toggle_reorder"}},
+        ]
 
     flex = {
         "type": "flex",
         "altText": "その他",
-        "contents": {
-            "type": "bubble",
-            "styles": {"body": {"backgroundColor": "#F8FAFC"}},
-            "body": {
-                "type": "box",
-                "layout": "vertical",
-                "spacing": "sm",
-                "contents": [
-                    {"type": "text", "text": "🧰 その他", "weight": "bold", "size": "lg"},
-                    {"type": "separator", "margin": "md"},
-
-                    {"type": "button", "style": "primary",
-                     "action": {"type": "postback", "label": f"📌 {BOARD_TITLE}", "data": "#board_list"}},
-                    
-                    {"type": "button", "style": "secondary",
-                    "action": {"type": "postback", "label": f"➕ {BOARD_TITLE}に入れる", "data": "#board_add"}},
-                    
-                    {"type": "button", "style": "secondary",
-                     "action": {"type": "postback", "label": "🗝 合言葉で集会所に参加", "data": "#space_join"}},
-                    
-                    {"type": "button", "style": "secondary",
-                     "action": {"type": "postback", "label": "🗂 集会所を選ぶ（active切替）", "data": "#space_list"}},
-
-                    {"type": "separator", "margin": "md"},
-
-                    {"type": "text", "text": f"🛠 {BOARD_TITLE}の整理（普段は隠す）",
-                     "size": "sm", "color": "#64748B"},
-
-                    {"type": "button", "style": "secondary",
-                     "action": {"type": "postback", "label": f"🗑 削除モード：{del_state}", "data": "#board_toggle_delete"}},
-
-                    {"type": "button", "style": "secondary",
-                     "action": {"type": "postback", "label": f"↕ 並び替えモード：{reo_state}", "data": "#board_toggle_reorder"}},
-
-                    {"type": "separator", "margin": "md"},
-
-                    {"type": "button", "style": "secondary",
-                     "action": {"type": "postback", "label": "🌍 全体予定追加", "data": "#other_add_global"}}
-                ]
-            }
-        }
+        "contents": {"type": "bubble", "styles": {"body": {"backgroundColor": "#F8FAFC"}},
+                    "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": contents}}
     }
     send_flex(reply_token, flex)
-
+    
 def normalize_pass(s: str) -> str:
     # 合言葉の表記揺れを減らす（空白トリム、連続空白を1つ）
     s = (s or "").strip()
@@ -840,7 +831,7 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
 
         personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
         global_tasks, _ = get_space_global_tasks(tasks, user_id)
-        send_schedule(reply_token, personal, global_tasks)
+        send_schedule(reply_token, personal, global_tasks, user_id=user_id)
         return
     
     # ✅ 伝言板 追加（ここを最上部に）
@@ -1088,7 +1079,7 @@ def handle_delete(reply_token, user_id, data, source_type, group_id=None):
             if user_id not in t.get("done_by", [])
         ]
 
-    send_schedule(reply_token, personal, global_tasks)
+    send_schedule(reply_token, personal, global_tasks, user_id=user_id)
     
 def handle_space_done(reply_token, user_id, data):
     idx = int(data.split("_")[-1])
@@ -1111,7 +1102,7 @@ def handle_space_done(reply_token, user_id, data):
 
     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
     global_tasks, _ = get_space_global_tasks(tasks, user_id)
-    send_schedule(reply_token, personal, global_tasks)
+    send_schedule(reply_token, personal, global_tasks, user_id=user_id)
 
 def handle_space_delete(reply_token, user_id, data):
     idx = int(data.split("_")[-1])
@@ -1132,7 +1123,7 @@ def handle_space_delete(reply_token, user_id, data):
 
     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
     global_tasks, _ = get_space_global_tasks(tasks, user_id)
-    send_schedule(reply_token, personal, global_tasks)
+    send_schedule(reply_token, personal, global_tasks, user_id=user_id)
     
 def handle_done_delete_personal(reply_token, user_id, data):
     idx = int(data.split("_")[-1])
@@ -1293,43 +1284,62 @@ def handle_list_check(reply_token, user_id, opened=-1):
                     })
                 else:
                     for i_idx, item in enumerate(items):
-                        mark = "☑" if item.get("done") else "⬜"
+                        is_done = bool(item.get("done"))
                         text = item.get("text", "")
-
+                        
+                        # 完了なら薄く＋取り消し線
+                        text_color = "#94A3B8" if is_done else "#111111"
+                        decoration = "line-through" if is_done else "none"
+                        mark = "☑" if is_done else "⬜"
+                        
                         row_contents = [
+                        # 左：表示（取り消し線OKな text）
+                            {
+                                "type": "text",
+                                "text": f"{mark} {text}",
+                                "wrap": True,
+                                "flex": 7,
+                                "color": text_color,
+                                "decoration": decoration,
+                                "size": "sm"
+                            },
+                            # 右：トグルボタン（チェック付け外し）
                             {
                                 "type": "button",
-                                "flex": 5 if show_delete else 6,
+                                "flex": 2,
                                 "style": "secondary",
+                                "height": "sm",
                                 "action": {
                                     "type": "postback",
-                                    "label": f"{mark} {text}",
+                                    "label": "切替",
                                     "data": f"#toggle_check_{c_idx}_{i_idx}_{opened}"
                                 }
                             }
                         ]
-
-                        # ✅ 削除モードONの時だけ、項目削除ボタンを出す
+                        
+                        # 削除モードONの時だけ、項目削除ボタンを追加
                         if show_delete:
                             row_contents.append({
                                 "type": "button",
                                 "flex": 1,
                                 "style": "secondary",
+                                "height": "sm",
                                 "action": {
                                     "type": "postback",
                                     "label": "🗑",
                                     "data": f"#delete_item_{c_idx}_{i_idx}_{opened}"
                                 }
                             })
-
+                            
                         contents.append({
                             "type": "box",
                             "layout": "horizontal",
                             "margin": "sm",
+                            "spacing": "sm",
                             "contents": row_contents
                         })
-
-                        # ✅ 並び替えモードONの時だけ、↑↓を出す
+                        
+                        # 並び替えモードONの時だけ、↑↓を出す（ここは今のままでOK）
                         if show_reorder:
                             contents.append({
                                 "type": "box",
@@ -1342,25 +1352,18 @@ def handle_list_check(reply_token, user_id, opened=-1):
                                         "flex": 1,
                                         "style": "secondary",
                                         "height": "sm",
-                                        "action": {
-                                            "type": "postback",
-                                            "label": "↑",
-                                            "data": f"#move_item_{c_idx}_{i_idx}_up_{opened}"
-                                        }
+                                        "action": {"type": "postback", "label": "↑", "data": f"#move_item_{c_idx}_{i_idx}_up_{opened}"}
                                     },
                                     {
                                         "type": "button",
-                                        "flex": 1,
-                                        "style": "secondary",
-                                        "height": "sm",
-                                        "action": {
-                                            "type": "postback",
-                                            "label": "↓",
-                                            "data": f"#move_item_{c_idx}_{i_idx}_down_{opened}"
-                                        }
+                                         "flex": 1,
+                                         "style": "secondary",
+                                         "height": "sm",
+                                         "action": {"type": "postback", "label": "↓", "data": f"#move_item_{c_idx}_{i_idx}_down_{opened}"}
                                     }
                                 ]
                             })
+           
                             
                  # ✅ ここを追加：一番下に「➕ 項目を追加」ボタン（開いてる時だけ）
                     contents.append({
@@ -1387,14 +1390,14 @@ def handle_list_check(reply_token, user_id, opened=-1):
                         }
                     })
                     
-            else:
-                contents.append({
-                    "type": "text",
-                    "text": "タップで開く",
-                    "size": "sm",
-                    "color": "#999999",
-                    "margin": "md"
-                })
+                else:
+                    contents.append({
+                        "type": "text",
+                        "text": "タップで開く",
+                        "size": "sm",
+                        "color": "#999999",
+                        "margin": "md"
+                    })
 
             bubbles.append({
                 "type": "bubble",
@@ -1555,6 +1558,7 @@ def get_check_ui_flags(tasks, user_id):
 
     ui.setdefault("show_delete", False)
     ui.setdefault("show_reorder", False)
+    ui.setdefault("show_ops", False)
     return ui
 
 def get_board_ui_flags(tasks, user_id):
@@ -1564,10 +1568,25 @@ def get_board_ui_flags(tasks, user_id):
     ui = tasks["settings"][user_id]["board_ui"]
     ui.setdefault("show_delete", False)
     ui.setdefault("show_reorder", False)
+    ui.setdefault("show_ops", False)
     return ui
 
 def toggle_board_ui_flag(tasks, user_id, flag_key):
     ui = get_board_ui_flags(tasks, user_id)
+    ui[flag_key] = not ui.get(flag_key, False)
+    return ui[flag_key]
+
+def get_schedule_ui_flags(tasks, user_id):
+    tasks.setdefault("settings", {})
+    tasks["settings"].setdefault(user_id, {})
+    tasks["settings"][user_id].setdefault("schedule_ui", {})
+    ui = tasks["settings"][user_id]["schedule_ui"]
+
+    ui.setdefault("show_delete", False)  # ★予定表のゴミ箱表示
+    return ui
+
+def toggle_schedule_ui_flag(tasks, user_id, flag_key):
+    ui = get_schedule_ui_flags(tasks, user_id)
     ui[flag_key] = not ui.get(flag_key, False)
     return ui[flag_key]
 
@@ -1617,7 +1636,7 @@ def webhook():
                     
                     # if not sid:
                     #     send_reply(reply_token, "🗝 まだ集会所が未選択だよ。「その他」→「合言葉で集会所に参加」から入ってね")
-                    send_schedule(reply_token, personal, global_tasks)
+                    send_schedule(reply_token, personal, global_tasks, user_id=user_id)
 
                 # --- リッチメニュー：チェックリスト一覧 ---
                 elif data == "scope=menu&action=check":
@@ -1749,6 +1768,36 @@ def webhook():
                     toggle_check_ui_flag(tasks, user_id, "show_reorder")
                     save_tasks(tasks)
                     handle_menu_add(reply_token, user_id)
+                    
+                elif data == "#toggle_ops_menu":
+                    tasks = load_tasks()
+                    ui = get_check_ui_flags(tasks, user_id)
+                    ui["show_ops"] = not ui.get("show_ops", False)
+                    save_tasks(tasks)
+                    handle_menu_add(reply_token, user_id)
+                    
+                # ★追加メニュー側の「全体予定追加」＝その他と同じ機能に統一　
+                elif data == "#add_global":
+                    tasks = load_tasks()
+                    sid = get_active_space_id(tasks, user_id)
+                    if not sid:
+                        send_reply(reply_token, "🗝 先に集会所へ参加してね（その他→合言葉で参加）")
+                    else:
+                        user_states[user_id] = f"space_add_global:{sid}"
+                        send_reply(reply_token, "🌍 全体予定を書いてね（この集会所に追加されるよ）")
+                        
+                elif data == "#toggle_schedule_delete_mode":
+                    tasks = load_tasks()
+                    toggle_schedule_ui_flag(tasks, user_id, "show_delete")
+                    save_tasks(tasks)
+                    handle_menu_add(reply_token, user_id)
+                    
+                elif data == "#board_toggle_ops":
+                    tasks = load_tasks()
+                    ui = get_board_ui_flags(tasks, user_id)
+                    ui["show_ops"] = not ui.get("show_ops", False)
+                    save_tasks(tasks)
+                    handle_other_menu(reply_token, user_id, source_type, group_id)
                     
                 elif data.startswith("#add_item_"):
                     handle_add_item_start(reply_token, user_id, data)
