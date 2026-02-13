@@ -323,65 +323,67 @@ def send_schedule(reply_token, personal_tasks, global_tasks, show_done=False):
 
     requests.post(url, headers=headers, json=data)
     
-def send_done_schedule(reply_token, personal_done, group_done):
-    body = []
+def send_done_schedule(reply_token, personal_done, space_done):
+    """
+    personal_done: [{"text":..., "_idx": int}, ...]  ※ _idx 付きにする
+    space_done:    [{"text":..., "_idx": int}, ...]
+    """
+    body = [
+        {"type": "text", "text": "✅ 完了済み", "weight": "bold", "size": "lg"},
+        {"type": "separator", "margin": "md"},
+    ]
 
-    body.append({
-        "type": "text",
-        "text": "✅ 完了済み予定",
-        "weight": "bold",
-        "size": "lg"
-    })
-
+    # 個人
+    body.append({"type": "text", "text": "【個人】", "margin": "md", "weight": "bold"})
     if personal_done:
-        body.append({
-            "type": "text",
-            "text": "【個人】",
-            "margin": "md",
-            "weight": "bold"
-        })
-
         for t in personal_done:
+            idx = t.get("_idx")
             body.append({
-                "type": "text",
-                "text": "✔ " + t["text"],
-                "wrap": True
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "sm",
+                "contents": [
+                    {"type": "text", "text": "• " + t.get("text", ""), "wrap": True, "flex": 8, "size": "sm"},
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "height": "sm",
+                        "flex": 2,
+                        "action": {"type": "postback", "label": "🗑", "data": f"#done_delete_p_{idx}"}
+                    }
+                ]
             })
+    else:
+        body.append({"type": "text", "text": "（なし）", "size": "sm", "color": "#94A3B8"})
 
-    elif group_done:
-        body.append({
-            "type": "text",
-            "text": "【グループ】",
-            "margin": "md",
-            "weight": "bold"
-        })
-
-        for t in group_done:
+    # 集会所（Active）
+    body.append({"type": "text", "text": "【全体（集会所）】", "margin": "lg", "weight": "bold"})
+    if space_done:
+        for t in space_done:
+            idx = t.get("_idx")
             body.append({
-                "type": "text",
-                "text": "✔ " + t["text"],
-                "wrap": True
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "sm",
+                "contents": [
+                    {"type": "text", "text": "• " + t.get("text", ""), "wrap": True, "flex": 8, "size": "sm"},
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "height": "sm",
+                        "flex": 2,
+                        "action": {"type": "postback", "label": "🗑", "data": f"#done_delete_s_{idx}"}
+                    }
+                ]
             })
-
-    if not personal_done and not group_done:
-        body.append({
-            "type": "text",
-            "text": "完了済み予定はありません"
-        })
+    else:
+        body.append({"type": "text", "text": "（なし）", "size": "sm", "color": "#94A3B8"})
 
     flex = {
         "type": "flex",
-        "altText": "完了済み予定",
-        "contents": {
-            "type": "bubble",
-            "body": {
-                "type": "box",
-                "layout": "vertical",
-                "contents": body
-            }
-        }
+        "altText": "完了済み",
+        "contents": {"type": "bubble", "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body}}
     }
-
     send_flex(reply_token, flex)
     
 def handle_menu_add(reply_token, user_id):
@@ -999,24 +1001,17 @@ def handle_done(reply_token, user_id, data, source_type, group_id=None):
 def handle_show_done(reply_token, user_id, source_type, group_id=None):
     tasks = load_tasks()
 
-    # 完了済み個人予定
-    personal_done = [
-        t for t in tasks["users"].get(user_id, [])
-        if t.get("status") == "done"
-    ]
+    # ✅ 個人の完了済み（_idx 付き）
+    user_items = tasks.get("users", {}).get(user_id, [])
+    personal_done = []
+    for idx, t in enumerate(user_items):
+        if t.get("status") == "done":
+            personal_done.append({"text": t.get("text", ""), "_idx": idx})
 
-    # 完了済みグループ予定
-    group_done = []
-    if source_type == "group" and group_id:
-        tasks.setdefault("groups", {})
-        tasks["groups"].setdefault(group_id, [])
-        
-        group_done = [
-            t for t in tasks["groups"][group_id]
-            if user_id in t.get("done_by", [])
-            ]
+    # ✅ 集会所の完了済み（_idx 付き）
+    space_done, _sid = get_space_done_tasks(tasks, user_id)  # これはあなたが _idx 付きにしてある前提
 
-    send_done_schedule(reply_token, personal_done, group_done)
+    send_done_schedule(reply_token, personal_done, space_done)
     
 def handle_delete(reply_token, user_id, data, source_type, group_id=None):
     """
@@ -1111,6 +1106,39 @@ def handle_space_delete(reply_token, user_id, data):
     personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
     global_tasks, _ = get_space_global_tasks(tasks, user_id)
     send_schedule(reply_token, personal, global_tasks)
+    
+def handle_done_delete_personal(reply_token, user_id, data):
+    idx = int(data.split("_")[-1])
+    tasks = load_tasks()
+
+    user_list = tasks.get("users", {}).get(user_id, [])
+    if 0 <= idx < len(user_list) and user_list[idx].get("status") == "done":
+        user_list.pop(idx)
+        tasks["users"][user_id] = user_list
+        save_tasks(tasks)
+
+    # 削除後、完了済み画面を再表示
+    handle_show_done(reply_token, user_id, source_type=None, group_id=None)
+
+
+def handle_done_delete_space(reply_token, user_id, data):
+    idx = int(data.split("_")[-1])
+    tasks = load_tasks()
+
+    sid = get_active_space_id(tasks, user_id)
+    if not sid:
+        send_reply(reply_token, "集会所が未選択だよ")
+        return
+
+    tasks.setdefault("space_tasks", {})
+    items = tasks["space_tasks"].setdefault(sid, [])
+
+    # “完了済み”だけ削除許可（安全）
+    if 0 <= idx < len(items) and user_id in items[idx].get("done_by", []):
+        items.pop(idx)
+        save_tasks(tasks)
+
+    handle_show_done(reply_token, user_id, source_type=None, group_id=None)
 
 def handle_undo(reply_token, user_id, data, group_id):
     tasks = load_tasks()
@@ -1306,6 +1334,18 @@ def handle_list_check(reply_token, user_id, opened=-1):
                                     }
                                 ]
                             })
+                            
+                                # ✅ ここを追加：一番下に「➕ 項目を追加」ボタン（開いてる時だけ）
+                contents.append({
+                    "type": "button",
+                    "style": "primary",
+                    "margin": "lg",
+                    "action": {
+                        "type": "postback",
+                        "label": "➕ 項目を追加",
+                        "data": f"#add_item_{c_idx}_{opened}"
+                    }
+                })
 
                 # ✅ リスト丸ごと削除は削除モードONの時だけ
                 if show_delete:
@@ -1319,6 +1359,7 @@ def handle_list_check(reply_token, user_id, opened=-1):
                             "data": f"#delete_check_{c_idx}_{opened}"
                         }
                     })
+                    
             else:
                 contents.append({
                     "type": "text",
@@ -1373,6 +1414,15 @@ def handle_toggle_check(reply_token, user_id, data):
     # 開いたまま再表示
     handle_list_check(reply_token, user_id, c_idx)
 
+def handle_add_item_start(reply_token, user_id, data):
+    # data: #add_item_{c_idx}_{opened}
+    parts = data.split("_")
+    c_idx = int(parts[2])
+    opened = int(parts[3])
+
+    # stateに「どのリストへ追加するか」を埋め込む
+    user_states[user_id] = f"add_check_item:{c_idx}:{opened}"
+    send_reply(reply_token, "追加する項目を送ってね（キャンセルは「キャンセル」）")
 
 def handle_delete_item(reply_token, user_id, data):
     # data: #delete_item_{c_idx}_{i_idx}_{opened}
@@ -1626,6 +1676,12 @@ def webhook():
 
                 elif data == "#show_done":
                     handle_show_done(reply_token, user_id, source_type, group_id)
+                
+                elif data.startswith("#done_delete_p_"):
+                    handle_done_delete_personal(reply_token, user_id, data)
+
+                elif data.startswith("#done_delete_s_"):
+                    handle_done_delete_space(reply_token, user_id, data)
 
                 elif data == "#add_personal":
                     user_states[user_id] = "add_personal"
@@ -1649,6 +1705,9 @@ def webhook():
                     toggle_check_ui_flag(tasks, user_id, "show_reorder")
                     save_tasks(tasks)
                     handle_menu_add(reply_token, user_id)
+                    
+                elif data.startswith("#add_item_"):
+                    handle_add_item_start(reply_token, user_id, data)
 
                 else:
                     send_reply(reply_token, "未定義メニュー")
