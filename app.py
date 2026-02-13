@@ -1650,17 +1650,17 @@ def webhook():
                 data = event.get("postback", {}).get("data", "") or ""
 
                 # --- リッチメニュー：予定表 ---
-            if data == "scope=menu&action=list":
-                tasks = load_tasks()
-                personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
-                
-                global_tasks, sid = get_space_global_tasks(tasks, user_id)
-                
-                if not sid:
-                    send_reply(reply_token, "🗝 まだ集会所が未選択だよ。\n「その他」→「合言葉で集会所に参加」から入ってね")
-                    return
+                if data == "scope=menu&action=list":
+                    tasks = load_tasks()
+                    personal = [t for t in tasks["users"].get(user_id, []) if t.get("status") != "done"]
                     
-                send_schedule(reply_token, personal, global_tasks, user_id=user_id)
+                    global_tasks, sid = get_space_global_tasks(tasks, user_id)
+                    
+                    if not sid:
+                        send_reply(reply_token, "🗝 まだ集会所が未選択だよ。\n「その他」→「合言葉で集会所に参加」から入ってね")
+                        return
+                        
+                    send_schedule(reply_token, personal, global_tasks, user_id=user_id)
                 
                 # --- リッチメニュー：チェックリスト一覧 ---
                 elif data == "scope=menu&action=check":
