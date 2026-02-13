@@ -796,7 +796,9 @@ def handle_board_list(reply_token, user_id, source_type=None, group_id=None):
     send_flex(reply_token, flex)
     
 def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
-    state = user_states.get(user_id)
+    tasks = load_tasks()
+    # ✅ DBに保存したstateを優先（Renderの複数プロセス対策）
+    state = get_persisted_state(tasks, user_id) or user_states.get(user_id)
 
     # ✅ 集会所 参加（合言葉入力）
     if state == "space_join_wait_pass":
@@ -912,23 +914,23 @@ def handle_message(reply_token, user_id, text, source_type=None, group_id=None):
     if state and state.startswith("add_check_item:"):
         _, c_idx, opened = state.split(":")
         c_idx = int(c_idx)
-        opened = int(opened)
 
         if text.strip() == "キャンセル":
             user_states.pop(user_id, None)
+            clear_persisted_state(tasks, user_id)
+            save_tasks(tasks)
             send_reply(reply_token, "キャンセルしたよ")
             return
 
-        tasks = load_tasks()
         checklists = tasks.get("checklists", {}).get(user_id, [])
-
         if 0 <= c_idx < len(checklists):
             checklists[c_idx].setdefault("items", []).append({"text": text, "done": False})
-            save_tasks(tasks)
 
+        # ✅ state を両方から消す（次に残さない）
         user_states.pop(user_id, None)
+        clear_persisted_state(tasks, user_id)
+        save_tasks(tasks)
 
-        # 追加後、そのリストを開いた状態で再表示
         handle_list_check(reply_token, user_id, c_idx)
         return
         
@@ -1359,17 +1361,17 @@ def handle_list_check(reply_token, user_id, opened=-1):
                                 ]
                             })
                             
-                                # ✅ ここを追加：一番下に「➕ 項目を追加」ボタン（開いてる時だけ）
-                contents.append({
-                    "type": "button",
-                    "style": "primary",
-                    "margin": "lg",
-                    "action": {
-                        "type": "postback",
-                        "label": "➕ 項目を追加",
-                        "data": f"#add_item_{c_idx}_{opened}"
-                    }
-                })
+                 # ✅ ここを追加：一番下に「➕ 項目を追加」ボタン（開いてる時だけ）
+                    contents.append({
+                        "type": "button",
+                        "style": "primary",
+                        "margin": "lg",
+                        "action": {
+                            "type": "postback",
+                            "label": "➕ 項目を追加",
+                            "data": f"#add_item_{c_idx}_{opened}"
+                        }
+                    })
 
                 # ✅ リスト丸ごと削除は削除モードONの時だけ
                 if show_delete:
@@ -1437,15 +1439,17 @@ def handle_toggle_check(reply_token, user_id, data):
 
     # 開いたまま再表示
     handle_list_check(reply_token, user_id, c_idx)
-
+    
 def handle_add_item_start(reply_token, user_id, data):
     # data: #add_item_{c_idx}_{opened}
     parts = data.split("_")
     c_idx = int(parts[2])
     opened = int(parts[3])
 
-    # stateに「どのリストへ追加するか」を埋め込む
-    user_states[user_id] = f"add_check_item:{c_idx}:{opened}"
+    tasks = load_tasks()
+    set_persisted_state(tasks, user_id, f"add_check_item:{c_idx}:{opened}")
+    save_tasks(tasks)
+
     send_reply(reply_token, "追加する項目を送ってね（キャンセルは「キャンセル」）")
 
 def handle_delete_item(reply_token, user_id, data):
@@ -1570,6 +1574,21 @@ def toggle_check_ui_flag(tasks, user_id, flag_key):
     ui = get_check_ui_flags(tasks, user_id)
     ui[flag_key] = not ui.get(flag_key, False)
     return ui[flag_key]
+    
+def get_persisted_state(tasks, user_id: str):
+    tasks.setdefault("settings", {})
+    tasks["settings"].setdefault(user_id, {})
+    return tasks["settings"][user_id].get("_state")
+
+def set_persisted_state(tasks, user_id: str, state: str):
+    tasks.setdefault("settings", {})
+    tasks["settings"].setdefault(user_id, {})
+    tasks["settings"][user_id]["_state"] = state
+
+def clear_persisted_state(tasks, user_id: str):
+    tasks.setdefault("settings", {})
+    tasks["settings"].setdefault(user_id, {})
+    tasks["settings"][user_id].pop("_state", None)
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
